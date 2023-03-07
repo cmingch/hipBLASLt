@@ -116,8 +116,8 @@ if(BUILD_CODE_COVERAGE)
 endif()
 
 if(BUILD_ADDRESS_SANITIZER)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -shared-libasan")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -shared-libasan")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -shared-libsan")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -shared-libsan")
     add_link_options(-fuse-ld=lld)
 endif()
 
