@@ -56,7 +56,8 @@ class LraTileAssignmentMFMA(LraTileAssignment):
         ldsVgpr1 = writer.vgprPool.checkOut(1,"ldsVgpr1")
         dummy   = writer.vgprPool.checkOut(1,"dummy")
 
-        isMfma = writer.states.asmCaps["HasMFMA"]
+        #isMfma = writer.states.asmCaps["HasMFMA"]
+        isNotgfx11 = writer.states.version[0] != 11
 
         # get constant parameter
         tc               = tP["tensorChar"]
@@ -123,7 +124,8 @@ class LraTileAssignmentMFMA(LraTileAssignment):
                 "4. apply VectorWidth: bnOffset = bnOffset * vw(%u)" % vectorWidth))
 
             # unroll offset
-            if isMfma and (dividendForKId != waveWidth):
+            #if isMfma and (dividendForKId != waveWidth):
+            if isNotgfx11 and (dividendForKId != waveWidth):
                 module.add(vectorStaticRemainder(dummy, kReg, "Serial", waveWidth, tmpVgprRes, tmpSgprInfo, \
                 "5. thread id in wave: wtid = tid %% wavelength(%u)" % waveWidth))
                 module.add(vectorStaticDivide(kReg, kReg, dividendForKId, tmpVgprRes, \
