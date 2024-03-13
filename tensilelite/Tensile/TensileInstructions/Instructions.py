@@ -28,6 +28,7 @@ from .Formatting import formatStr, printExit
 import abc
 from enum import Enum
 from typing import List, Optional, Union
+#from .Utils import sgpr
 
 ################################################################################
 ################################################################################
@@ -538,7 +539,14 @@ class MUBUFReadInstruction(GlobalReadInstruction):
         return [self.dst, self.vaddr, self.saddr, self.soffset]
 
     def getArgStr(self) -> str:
-        return str(self.dst) + ", " + str(self.vaddr) + ", " + str(self.saddr) + ", " + str(self.soffset)
+        #return str(self.dst) + ", " + str(self.vaddr) + ", " + str(self.saddr) + ", " + str(self.soffset)
+        #if self.asmCaps["HasMUBUFConst"] or self.soffset != "0" or self.soffset != 0:
+        #    return str(self.dst) + ", " + str(self.vaddr) + ", " + str(self.saddr) + ", " + str(self.soffset)
+        #elif str(self.soffset)=="0":
+        if str(self.soffset)=="0":
+            return str(self.dst) + ", " + str(self.vaddr) + ", " + str(self.saddr) + ", " + "null"
+        else:
+            return str(self.dst) + ", " + str(self.vaddr) + ", " + str(self.saddr) + ", " + str(self.soffset)
 
     def toList(self) -> list:
         self.preStr()
@@ -657,7 +665,13 @@ class MUBUFStoreInstruction(GlobalWriteInstruction):
         return [self.srcData, self.vaddr, self.saddr, self.soffset]
 
     def getArgStr(self) -> str:
-        return str(self.srcData) + ", " + str(self.vaddr) + ", " + str(self.saddr) + ", " + str(self.soffset)
+        #return str(self.srcData) + ", " + str(self.vaddr) + ", " + str(self.saddr) + ", " + str(self.soffset)
+        if self.asmCaps["HasMUBUFConst"]:
+            return str(self.srcData) + ", " + str(self.vaddr) + ", " + str(self.saddr) + ", " + str(self.soffset)
+        elif str(self.soffset) == "0":
+            return str(self.srcData) + ", " + str(self.vaddr) + ", " + str(self.saddr) + ", " + "null"
+        else:
+            assert 0, "MUBUF instruction cannot use inline constant."
 
     def toList(self) -> list:
         self.preStr()
@@ -955,7 +969,8 @@ class DSLoadD16HIU16(DSLoadInstruction):
     def __init__(self, dst, src, ds: Optional[DSModifiers] = None, comment="") -> None:
         super().__init__(InstType.INST_D16_HI_U16, dst, src, ds, comment)
         if ds: ds.na = 1
-        self.setInst("ds_load_u16_d16_hi")
+        #self.setInst("ds_load_u16_d16_hi")
+        self.setInst("ds_load_u16")
 
 class DSLoadB16(DSLoadInstruction):
     def __init__(self, dst, src, ds: Optional[DSModifiers] = None, comment="") -> None:
@@ -1251,12 +1266,41 @@ class SCmpLtU32(CommonInstruction):
         super().__init__(InstType.INST_U32, None, [src0, src1], None, None, comment)
         self.setInst("s_cmp_lt_u32")
 
+class SCmpGtI32(CommonInstruction):
+    def __init__(self, src0, src1, comment="") -> None:
+        super().__init__(InstType.INST_I32, None, [src0, src1], None, None, comment)
+        self.setInst("s_cmp_gt_i32")
+
+class SCmpGtU32(CommonInstruction):
+    def __init__(self, src0, src1, comment="") -> None:
+        super().__init__(InstType.INST_U32, None, [src0, src1], None, None, comment)
+        self.setInst("s_cmp_gt_u32")
+
 # S Cmp K
 # SCC = (S0.u == SIMM16)
+class _SCmpKEQU32(CommonInstruction):
+    def __init__(self, src, simm16: Union[int, str], comment="") -> None:
+        super().__init__(InstType.INST_U32, None, [src, simm16], None, None, comment)
+        self.setInst("s_cmpk_eq_u32")
+
 class SCmpKEQU32(CommonInstruction):
     def __init__(self, src, simm16: Union[int, str], comment="") -> None:
         super().__init__(InstType.INST_U32, None, [src, simm16], None, None, comment)
         self.setInst("s_cmpk_eq_u32")
+
+#    def toList(self) -> list:
+#        assert 0 and "Not supported."
+#        return []
+
+#    def setupInstructions(self):
+#        super().setupInstructions()
+#        assert isinstance(self.srcs, List)
+#        if self.asmCaps["HasSCMPK"]:
+#            self.instructions = [_SCmpKEQU32(self.src, self.simm16, self.comment)]
+#        else:
+#            tmpScmp = self.sgprPool.checkOut(1)
+#            smov = SMovB32(sgpr(tmpScmp), self.simm16)
+#            self.instructions = [smov, SCmpEQU32(self.src, sgpr(tmpScmp), self.comment)]            
 
 class SCmpKGeU32(CommonInstruction):
     def __init__(self, src, simm16: str, comment="") -> None:
@@ -1498,7 +1542,10 @@ class SSetPrior(Instruction):
 class SBarrier(Instruction):
     def __init__(self, comment="") -> None:
         super().__init__(InstType.INST_NOTYPE, comment)
-        self.setInst("s_barrier")
+        if self.asmCaps["HasBarrier"]:
+            self.setInst("s_barrier")
+        else:
+            self.setInst("s_barrier_signal -1 \ns_barrier_wait -1")
 
     def getParams(self) -> list:
         return []
@@ -1607,10 +1654,14 @@ class _SWaitCnt(Instruction):
             waitStr = ""
             if self.lgkmcnt != -1:
                 maxLgkmcnt = self.asmCaps["MaxLgkmcnt"]
-                waitStr = "lgkmcnt(%u)" % (min(self.lgkmcnt,maxLgkmcnt))
+                #waitStr = "lgkmcnt(%u)" % (min(self.lgkmcnt,maxLgkmcnt))
+                waitStr = "dscnt(%u)" % (min(self.lgkmcnt,maxLgkmcnt))
             if self.vmcnt != -1:
-                waitStr += (", " if waitStr != "" else "") + "vmcnt(%u)"%self.vmcnt
-        return self.formatWithComment("s_waitcnt %s"%(waitStr))
+                #waitStr += (", " if waitStr != "" else "") + "vmcnt(%u)"%self.vmcnt
+                waitStr += (", " if waitStr != "" else "") + "loadcnt(%u)"%self.vmcnt #cm review
+        #return self.formatWithComment("s_waitcnt %s"%(waitStr))
+        waitStr = "dscnt(%u)" % (0)
+        return self.formatWithComment("s_wait_%s"%(waitStr))    
 
 class _SWaitCntVscnt(Instruction):
     def __init__(self, vscnt: int=-1, comment="") -> None:
@@ -1625,7 +1676,24 @@ class _SWaitCntVscnt(Instruction):
         return []
 
     def __str__(self) -> str:
-        return self.formatWithComment("s_waitcnt_vscnt null %u"%(self.vscnt))
+        #return self.formatWithComment("s_waitcnt_vscnt null %u"%(self.vscnt))
+        return self.formatWithComment("s_wait_loadcnt %u"%(0))
+    
+class _SWaitKMcnt(Instruction):
+    def __init__(self, vscnt: int=-1, comment="") -> None:
+        super().__init__(InstType.INST_NOTYPE, comment)
+        self.vscnt = vscnt
+
+    def getParams(self) -> list:
+        return [self.vscnt]
+
+    def toList(self) -> list:
+        assert 0 and "Not supported."
+        return []
+
+    def __str__(self) -> str:
+        #return self.formatWithComment("s_waitcnt_vscnt null %u"%(self.vscnt))
+        return self.formatWithComment("s_wait_kmcnt %u"%(0))
 
 class SWaitCnt(CompositeInstruction):
     """
@@ -1663,8 +1731,8 @@ class SWaitCnt(CompositeInstruction):
         if self.archCaps["SeparateVscnt"]:
             vmcnt = min(vmcnt, maxVmcnt)
             self.instructions = [_SWaitCnt(lgkmcnt, vmcnt, comment)]
-            if (lgkmcnt != -1 and vmcnt != -1) or vscnt != -1 :
-                self.instructions.append(_SWaitCntVscnt(vmcnt, comment))
+            #if (lgkmcnt != -1 and vmcnt != -1) or vscnt != -1 : 
+            self.instructions.append(_SWaitCntVscnt(vmcnt, comment))
         else:
             vmvscnt = -1
             if vscnt != -1:
@@ -1673,6 +1741,8 @@ class SWaitCnt(CompositeInstruction):
                 vmvscnt = vmcnt + (vmvscnt if vmvscnt != -1 else 0)
             vmvscnt = min(vmvscnt, maxVmcnt)
             self.instructions = [_SWaitCnt(lgkmcnt, vmvscnt, comment)]
+            self.instructions.append(_SWaitCntVscnt(vmcnt, comment))
+            self.instructions.append(_SWaitKMcnt(vmcnt, comment))
 
 # S Load
 class SLoadB32(SMemLoadInstruction):

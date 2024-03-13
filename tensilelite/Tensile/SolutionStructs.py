@@ -1252,7 +1252,10 @@ class Solution(collections.abc.Mapping):
       else:
         outputVectorWidth, RegsPerOut = 4, 1
     elif globalParameters["AsmCaps"][isa]['HasWMMA']:
-      outputVectorWidth, RegsPerOut = 1, 1
+      if globalParameters["CurrentISA"][0] == 11:
+        outputVectorWidth, RegsPerOut = 1, 1
+      else:
+        outputVectorWidth, RegsPerOut = 8, 1
     else:
       print("WARNING: unexpect code flow")
 
@@ -1704,7 +1707,8 @@ class Solution(collections.abc.Mapping):
       isa = tuple(state["ISA"])
       state['MIInputPerThread'] = state["MatrixInstruction"][0] * state["MatrixInstruction"][2] * state["MatrixInstruction"][3] // state["WavefrontSize"]
       if (not globalParameters["AsmCaps"][isa]['HasMFMA']) and globalParameters["AsmCaps"][isa]['HasWMMA']:
-        state['MIInputPerThread'] = state["MatrixInstruction"][2]
+        if state['ISA'][0] == 10 or state['ISA'][0] == 11:
+          state['MIInputPerThread'] = state["MatrixInstruction"][2]
       sparseA = False if not state["ProblemType"]["Sparse"] else False if state["ProblemType"]["Sparse"] == 2 else True
       sparseB = False if not state["ProblemType"]["Sparse"] else True if state["ProblemType"]["Sparse"] == 2 else False
       state['MIInputPerThreadA'] = state['MIInputPerThread'] if not sparseA else state['MIInputPerThread']//2
