@@ -53,7 +53,7 @@ class ShiftVectorComponentsMFMA(ShiftVectorComponents):
         # this part can  support non SourceSwap for B
         # But let non SourceSwap for B go original shiftptr path
         #if (not kernel["SourceSwap"]) and tP["isB"]:
-        #    return Module("ShiftVectorComponentsMFMA (Empty)")
+        return Module("ShiftVectorComponentsMFMA (Empty)")
 
         # common parameter
         tc              = tP["tensorChar"]

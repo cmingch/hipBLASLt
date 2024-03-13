@@ -615,7 +615,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
       # interleave pack code
       # BF16 or FP16: each packCode is for one 32-bit reg,  1 packing inst: half-to-single x1
       # INT8        : each packCode is for one 32-bit regs, 3 packing inst: byte-to-half x2 + half-to-single x1
-      if self.states.archCaps["HasEccHalf"]:
+      if True: #self.states.archCaps["HasEccHalf"]: cm review
         instPerRegPack = 1 / kernel["ProblemType"]["DataType"].numRegisters() - 1
       else:
         instPerRegPack = 1 if (kernel["ProblemType"]["DataType"].numRegisters() == 0.25) else 0
@@ -781,7 +781,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
       # BF16 or FP16: each packCode is for one 32-bit reg,  1 packing inst: half-to-single x1
       # INT8        : each packCode is for one 32-bit regs, 3 packing inst: byte-to-half x2 + half-to-single x1
       ####
-      if self.states.archCaps["HasEccHalf"]:
+      if True: #self.states.archCaps["HasEccHalf"]: cm review
         instPerRegPack = 1 / kernel["ProblemType"]["DataType"].numRegisters() - 1
       else:
         instPerRegPack = 1 if (kernel["ProblemType"]["DataType"].numRegisters() == 0.25) else 0
@@ -2921,12 +2921,12 @@ class KernelWriter(metaclass=abc.ABCMeta):
       self.states.bpeCexternalGSU1
 
     # special case for wmma h and b
-    if (kernel["EnableMatrixInstruction"]
-            and self.states.asmCaps["HasWMMA"]
-            and (kernel["ProblemType"]["ComputeDataType"].numRegisters() == 0.5)):
-        self.states.bpeCinternal = 4
-        if kernel["_GlobalAccumulation"]:
-            self.states.bpeCexternal = 2
+    #if (kernel["EnableMatrixInstruction"]
+    #        and self.states.asmCaps["HasWMMA"]
+    #        and (kernel["ProblemType"]["ComputeDataType"].numRegisters() == 0.5)):
+    #    self.states.bpeCinternal = 4
+    #    if kernel["_GlobalAccumulation"]:
+    #        self.states.bpeCexternal = 2
 
     self.states.HHH_WMMA = kernel["EnableMatrixInstruction"] \
                                 and self.states.asmCaps["HasWMMA"] \

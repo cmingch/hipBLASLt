@@ -25,7 +25,7 @@
 from ..Component import LocalRead
 from ..TensileInstructions import Module, DSModifiers, vgpr, sgpr, \
                             SMovB32, SWaitCnt, VOrB32, VPermB32, VLShiftLeftOrB32, \
-                            VMovB32, VLShiftRightB32
+                            VMovB32, VLShiftRightB32, VPackF16toB32
 from math import ceil
 
 class LocalReadMFMA(LocalRead):
@@ -75,7 +75,7 @@ class LocalReadMFMA(LocalRead):
         numVgpr  = int(ceil(blockWidth))
 
         # pack register
-        if writer.states.archCaps["HasEccHalf"]:
+        if True: #writer.states.archCaps["HasEccHalf"]: cm review
             needPack = tP["bpe"] < 4 and not kernel["UnrollMajorLDS%s"%tc] and not tP["isM"]
             # specify I8 for the case that input number is equal to the localread blockwidth but need to split low and high bytes to different vgprs.
             needPackMetadata = tP["isM"] and ((kernel["MIInputPerThread%s"%tc] * tP["bpe"] / (blockWidth * 4) > 1) or (kernel["ProblemType"]["DataType"].numBytes() == 1 and writer.states.lrvwTileMetadata > 1))
@@ -168,10 +168,11 @@ class LocalReadMFMA(LocalRead):
                                     lowVgpr  = vgpr("Valu%s_X%u_I%u+%u"%(tc, bufferIdx, iui, valufIdx/2 - 1), numVgpr)
                                     highVgpr = vgpr("Valu%s_X%u_I%u+%u"%(tc, bufferIdx, iui, valufIdx/2), numVgpr)
                                     packCode.add(VLShiftLeftOrB32(dst=lowVgpr, src0=heighVgpr, shiftHex=hex(0x10), src1=lowVgpr, comment="pack two int8x2 Vgpr to one Vgpr"))
-                        elif writer.states.archCaps["HasEccHalf"]: # ECC pack
+                        elif True: #writer.states.archCaps["HasEccHalf"]: # ECC pack cm review
                             if needPack and highBitsForHalf:
                                 highVgpr = vgpr("Valu%s_X%u_I%u_D%u+%u"%(tc, bufferIdx, iui, rIdx%2, valuiIdx), numVgpr)
-                                packCode.add(VOrB32(dst=baseLRVgpr, src0=baseLRVgpr, src1=highVgpr, comment="pack two half Vgpr to one Vgpr"))
+                                #packCode.add(VOrB32(dst=baseLRVgpr, src0=baseLRVgpr, src1=highVgpr, comment="pack two half Vgpr to one Vgpr"))
+                                packCode.add(VPackF16toB32(dst=baseLRVgpr, src0=baseLRVgpr, src1=highVgpr, comment="pack two half Vgpr to one Vgpr"))
                                 destVgpr = highVgpr
                             # pack for blockWidth 0.25 type
                             isHigh8Bits  = (blockWidth == 0.25) and ( ((rIdx % 4) % 2) == 1) # rIdx = 1,3
@@ -184,7 +185,8 @@ class LocalReadMFMA(LocalRead):
                                     lowVgpr = vgpr("Valu%s_X%u_I%u_D%u+%u"%(tc, bufferIdx, iui, (rIdx%4)-1, valuiIdx), numVgpr) if isHigh16Bits else baseLRVgpr
                                     packCode.add(VLShiftLeftOrB32(dst=lowVgpr, src0=highVgpr, shiftHex=8, src1=lowVgpr, comment="pack two int8 Vgpr to one half Vgpr"))
                                     if isHigh16Bits:
-                                        packCode.add(VOrB32(dst=baseLRVgpr, src0=baseLRVgpr, src1=lowVgpr, comment="pack two half Vgpr to one Vgpr"))
+                                        #packCode.add(VOrB32(dst=baseLRVgpr, src0=baseLRVgpr, src1=lowVgpr, comment="pack two half Vgpr to one Vgpr"))
+                                        packCode.add(VPackF16toB32(dst=baseLRVgpr, src0=baseLRVgpr, src1=lowVgpr, comment="pack two half Vgpr to one Vgpr"))
                         else: # no ECC pack
                         # pack for No ECC blockwidth 0.25 type
                             isHigh8Bits  = (blockWidth == 0.25) and ( ((rIdx % 4) % 2) == 1) # 1,3
