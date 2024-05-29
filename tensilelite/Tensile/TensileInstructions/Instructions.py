@@ -317,7 +317,8 @@ class MFMAInstruction(Instruction):
         return kStr
 
     def getParams(self) -> list:
-        negStr = " neg_lo:[1,1,1]" if self.neg else ""
+        #negStr = " neg_lo:[1,1,1]" if self.neg else ""
+        negStr = " neg_lo:[1,1]" if self.neg else ""
         return [self.acc, self.a, self.b, self.acc2, negStr]
 
     def preStr(self) -> None:
@@ -335,12 +336,14 @@ class MFMAInstruction(Instruction):
                          instructionStep, self.typeConvert(self.instType), mfma_1k))
 
     def getArgStr(self) -> str:
-        negStr = " neg_lo:[1,1,1]" if self.neg else ""
+        #negStr = " neg_lo:[1,1,1]" if self.neg else ""
+        negStr = " neg_lo:[1,1]" if self.neg else ""
         return str(self.acc) + ", " + str(self.a) + ", " + str(self.b) + ", " + str(self.acc2) + negStr
 
     def toList(self) -> list:
         self.preStr()
-        negStr = " neg_lo:[1,1,1]" if self.neg else ""
+        #negStr = " neg_lo:[1,1,1]" if self.neg else ""
+        negStr = " neg_lo:[1,1]" if self.neg else ""
         return [self.instStr, self.acc, self.a, self.b, self.acc2, negStr, self.comment]
 
     def __str__(self) -> str:
@@ -958,6 +961,7 @@ class DSLoadD16HIU8(DSLoadInstruction):
         super().__init__(InstType.INST_D16_HI_U8, dst, src, ds, comment)
         if ds: ds.na = 1
         self.setInst("ds_load_u8_d16_hi")
+        #self.setInst("ds_load_u8")
 
 class DSLoadU16(DSLoadInstruction):
     def __init__(self, dst, src, ds: Optional[DSModifiers] = None, comment="") -> None:
@@ -2266,6 +2270,11 @@ class VCmpXLeU32(VCmpXInstruction):
     def __init__(self, dst, src0, src1, sdwa: Optional[SDWAModifiers] = None, comment="") -> None:
         super().__init__(InstType.INST_U32, dst, src0, src1, sdwa, comment)
         self.setInst("v_cmpx_le_u32")
+
+class VCmpXLeI32(VCmpXInstruction):
+    def __init__(self, dst, src0, src1, sdwa: Optional[SDWAModifiers] = None, comment="") -> None:
+        super().__init__(InstType.INST_I32, dst, src0, src1, sdwa, comment)
+        self.setInst("v_cmpx_le_i32")
 
 class VCmpXLtF32(VCmpXInstruction):
     def __init__(self, dst, src0, src1, sdwa: Optional[SDWAModifiers] = None, comment="") -> None:

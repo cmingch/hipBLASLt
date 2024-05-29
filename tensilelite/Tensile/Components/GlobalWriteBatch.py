@@ -253,7 +253,9 @@ class GlobalWriteBatchWriter:
 
     if self.kernel["BufferStore"] and self.edge:
       bufferOOB = self.parentWriter.vgprPool.checkOut(1, "BufferOOB")
-      module.add(VMovB32(dst=vgpr(bufferOOB), src="BufferOOB"))
+      module.add(VMovB32(dst=vgpr(bufferOOB), src=0xFFFFFFFF )) #"BufferOOB")) cm debug
+      #module.add(SMovB32(dst=sgpr("SrdC+3"), src=0x00020000)) #cm review
+      #module.add(SMovB32(dst=sgpr("SrdD+3"), src=0x00020000)) #cm review
     else:
       bufferOOB = None
     #when biasDim = 1 the bias's gwvw is alwasy be 1.
@@ -284,9 +286,16 @@ class GlobalWriteBatchWriter:
         module.add(addrCalc.emitLdChange(self.kernel, self.ss, 'C', self.edge, self.beta, mask, bufferOOB, (elementIdx == 0), self.tmpVgpr, self.tmpSgpr, addrCVgpr, self.addrC, 0))
         if dataBeta not in loadedDataBeta:
           if self.kernel["GroupLoadStore"]:
+            module.addComment1("cm debug readInput ...1")
             loadInputCode.add(self.parentWriter.readInput(self.kernel, self.ss, 'C', self.kernel["ProblemType"]["DestDataType"], addrCalc, vc0, data, self.gwvw, addrCVgpr, self.tmpS01))
           else:
+            module.addComment1("cm debug readInput ...2")
+            if self.edge:
+              module.add(VCmpXLeI32(dst=EXEC(), src0=0, src1=vgpr(addrCVgpr), comment="cm debug"))
             module.add(self.parentWriter.readInput(self.kernel, self.ss, 'C', self.kernel["ProblemType"]["DestDataType"], addrCalc, vc0, data, self.gwvw, addrCVgpr, self.tmpS01))
+            if self.edge:
+              module.add(SSetMask(dst=EXEC(), src=-1, comment="cm debug reset mask" ))
+            module.addComment1("cm debug readInput ...2  end")
           loadedDataBeta[dataBeta] = ceil(self.kernel["ProblemType"]["DestDataType"].numBytes() * self.ss.cfg.gwvw / 16)
           self.loadsBetaIssued += ceil(self.kernel["ProblemType"]["DestDataType"].numBytes() * self.gwvw / 16)
       self.betaLoadIssued.append(len(loadedDataBeta) * ceil(self.kernel["ProblemType"]["DestDataType"].numBytes() * self.ss.cfg.gwvw / 16))
@@ -296,8 +305,10 @@ class GlobalWriteBatchWriter:
         if dataE not in loadedDataE:
           loadOffset = int((self.kernel["ProblemType"]["ComputeDataType"].numRegisters() - self.kernel["ProblemType"]["DataTypeE"].numRegisters()) * self.ss.cfg.gwvw)
           if self.kernel["GroupLoadStore"]:
+            module.addComment1("cm debug readInput ...3")
             loadInputCode.add(self.parentWriter.readInput(self.kernel, self.ss, 'E', self.kernel["ProblemType"]["DataTypeE"], addrCalc, vc0, dataE + loadOffset, self.gwvw, addrEVgpr, self.tmpS01))
           else:
+            module.addComment1("cm debug readInput ...4")
             module.add(self.parentWriter.readInput(self.kernel, self.ss, 'E', self.kernel["ProblemType"]["DataTypeE"], addrCalc, vc0, dataE + loadOffset, self.gwvw, addrEVgpr, self.tmpS01))
           loadedDataE[dataE] = ceil(self.kernel["ProblemType"]["DataTypeE"].numBytes() * self.ss.cfg.gwvw / 16)
           self.loadsEIssued += ceil(self.kernel["ProblemType"]["DataTypeE"].numBytes() * self.gwvw / 16)
@@ -823,7 +834,9 @@ class GlobalWriteBatchWriter:
         else:
           printExit("Unsupport compute type for E output. (%s)"%self.kernel["ProblemType"]["ComputeDataType"].toEnum())
 
+        module.addComment1("cm debug addStore ...1")
         module.add(self.parentWriter.addStore(self.kernel, self.ss, 'E', addrCalc, vgprDst, self.tmpS01, self.edge, comment="store E"))
+        module.addComment1("cm debug addStore ...1  end")
 
       SaturateTypeInt8 = SaturateCastType.NORMAL
 
@@ -960,7 +973,9 @@ class GlobalWriteBatchWriter:
       biasReductionModule = Module("biasReductionModule")
       if self.storeBiasD == 1:
         vgprIdx = self.ss.elementSumIdx[elementIdx] - self.parentWriter.states.c.startVgprValu
+        module.addComment1("cm debug addStore ...2")
         biasReductionModule.add(self.parentWriter.addStore(self.kernel, self.ss, 'Bias', addrCalc, "ValuC+%d"%vgprIdx, self.tmpS01, self.edge, comment="store Bias"))
+        module.addComment1("cm debug addStore ...2  end")
 
       if isActivationInsertAfter:
         module.add(convertModule)
@@ -976,7 +991,9 @@ class GlobalWriteBatchWriter:
         module.add(packModule)
 
       if not self.kernel["StoreRemapVectorWidth"]:
+        module.addComment1("cm debug addStore ...3")
         tmpStoreCode = self.parentWriter.addStore(self.kernel, self.ss, 'D', addrCalc, sumIdx, self.tmpS01, self.edge, comment="store D")
+        module.addComment1("cm debug addStore ...3 end")
         if self.kernel["GroupLoadStore"]:
           storeCode.add(tmpStoreCode)
         else:

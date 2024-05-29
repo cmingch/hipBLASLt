@@ -4445,9 +4445,9 @@ class KernelWriterAssembly(KernelWriter):
 
     vgprPerInputA    = int(numMIInputA * numRegistersIn)
     vgprPerInputB    = int(numMIInputB * numRegistersIn)
-    #print("cm numMIInputA:", numMIInputA)
-    #print("cm numMIInputB:", numMIInputB)
-    #print("cm numRegistersIn:", numRegistersIn)
+    print("cm numMIInputA:", numMIInputA)
+    print("cm numMIInputB:", numMIInputB)
+    print("cm numRegistersIn:", numRegistersIn)
     vgprPerInput     = max(vgprPerInputA,vgprPerInputB)
     shiftPerElement  = int(numRegistersIn * 32)
     s_nop            = 0
@@ -4580,6 +4580,12 @@ class KernelWriterAssembly(KernelWriter):
               VShiftLeft = VLShiftLeftB64
             elif vgprPerInput == 4:
               VShiftLeft = VLShiftLeftB64
+              biggerOffset = Label(label=self.labels.getNameInc("for_4_register"), comment="")
+              resetOffset = Label(label=self.labels.getNameInc("for_4_register_128"), comment="")
+              commonPath = Label(label=self.labels.getNameInc("for_4_register_end"), comment="")
+              biggerOffset2 = Label(label=self.labels.getNameInc("for_4_register_2"), comment="")
+              commonPath2 = Label(label=self.labels.getNameInc("for_4_register_end_2"), comment="")
+              resetOffset2 = Label(label=self.labels.getNameInc("for_4_register_128_2"), comment="")
             #print("cm vpr:", vgprPerInput)
             for a in range(0, kernel["MIWaveTileA"]):
               for iui in range(0, innerUnroll):
@@ -4588,14 +4594,47 @@ class KernelWriterAssembly(KernelWriter):
                 a_new = a*vgprPerInput*self.states.numReadsIterCoalescedA
                 aStr = vgpr("ValuA_X%u_I%u+%u+%u+%u" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset), vgprPerInput)
                 if vgprPerInput == 4:
-                  tmpVgpr   = self.vgprPool.checkOutAligned(2, 2, "tmpVgpr")
-                  shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuA_X%u_I%u+%u+%u+%u" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset),2), comment=""))
-                  shiftK.add(VMovB32(dst=vgpr(abReg), src=vgpr(tmpVgpr),comment="test 1...cm"))
-                  shiftK.add(VMovB32(dst=vgpr(abReg+1), src=vgpr(tmpVgpr+1),comment="test 1...cm"))
-                  shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuA_X%u_I%u+%u+%u+%u+1" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset),2), comment=""))
-                  shiftK.add(VMovB32(dst=vgpr(abReg+2), src=vgpr(tmpVgpr+1),comment="test 2...cm"))
-                  shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuA_X%u_I%u+%u+%u+%u+2" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset),2), comment=""))
-                  shiftK.add(VMovB32(dst=vgpr(abReg+3), src=vgpr(tmpVgpr+1),comment="test 3...cm"))
+                  #tmpVgpr   = self.vgprPool.checkOutAligned(2, 2, "tmpVgpr")
+                  #shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuA_X%u_I%u+%u+%u+%u" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset),2), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg), src=vgpr(tmpVgpr),comment="test 1...cm"))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+1), src=vgpr(tmpVgpr+1),comment="test 1...cm"))
+                  #shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuA_X%u_I%u+%u+%u+%u+1" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset),2), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+2), src=vgpr(tmpVgpr+1),comment="test 2...cm"))
+                  #shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuA_X%u_I%u+%u+%u+%u+2" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset),2), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+3), src=vgpr(tmpVgpr+1),comment="test 3...cm"))
+                  shiftK.add(VMovB32(dst=vgpr(abReg), src=vgpr("ValuA_X%u_I%u+%u+%u+%u" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset)),comment="test 1...cm"))
+                  shiftK.add(VMovB32(dst=vgpr(abReg+1), src=vgpr("ValuA_X%u_I%u+%u+%u+%u+1" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset)),comment="test 2...cm"))
+                  shiftK.add(VMovB32(dst=vgpr(abReg+2), src=vgpr("ValuA_X%u_I%u+%u+%u+%u+2" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset)),comment="test 3...cm"))
+                  shiftK.add(VMovB32(dst=vgpr(abReg+3), src=vgpr("ValuA_X%u_I%u+%u+%u+%u+3" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset)),comment="test 4...cm"))
+                  
+                  #shiftK.add(SCmpGeI32(src0=sgpr(tmpSgprX1), src1=64, comment="check offset >63"))
+                  #shiftK.add(SCBranchSCC1(labelName=biggerOffset.getLabelName(), comment="jump when positive"))
+                  #shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuA_X%u_I%u+%u+%u+%u" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset),2), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg), src=vgpr(tmpVgpr),comment="test 1...cm"))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+1), src=vgpr(tmpVgpr+1),comment="test 1...cm"))
+                  #shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuA_X%u_I%u+%u+%u+%u+1" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset),2), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+2), src=vgpr(tmpVgpr+1),comment="test 2...cm"))
+                  #shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuA_X%u_I%u+%u+%u+%u+2" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset),2), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+3), src=vgpr(tmpVgpr+1),comment="test 3...cm"))
+                  #shiftK.add(SBranch(commonPath.getLabelName()))
+                  shiftK.add(biggerOffset)
+                  #shiftK.add(SCmpGeI32(src0=sgpr(tmpSgprX1), src1=128, comment="check offset >128"))
+                  #shiftK.add(SCBranchSCC1(labelName=resetOffset.getLabelName(), comment="jump when positive"))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg), src=0, comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+1), src=0, comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+2), src=vgpr("ValuA_X%u_I%u+%u+%u+%u" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset)), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+3), src=vgpr("ValuA_X%u_I%u+%u+%u+%u+1" % (vgprBufferA_new, iuiA_new, a_new, vgprBufferA_new_offset, iuiA_new_offset)), comment=""))
+                  #shiftK.add(SSubU32(dst=sgpr(tmpSgprX1), src0=sgpr(tmpSgprX1), src1=64, comment=""))
+                  ##shiftK.add(VMovB32(dst=vgpr(abReg+2), src=0, comment="")) #WA
+                  ##shiftK.add(VMovB32(dst=vgpr(abReg+3), src=0, comment="")) #WA
+                  #shiftK.add(VShiftLeft(dst=vgpr(abReg+2, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr(abReg+2, 2), comment=""))
+                  #shiftK.add(SBranch(commonPath.getLabelName()))
+                  #shiftK.add(resetOffset)
+                  #shiftK.add(VMovB32(dst=vgpr(abReg), src=0, comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+1), src=0, comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+2), src=0, comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+3), src=0, comment=""))
+                  #shiftK.add(commonPath)
                 else:
                   shiftK.add(VShiftLeft(dst=vgpr(abReg, vgprPerInput), shiftHex=sgpr(tmpSgprX1), src=aStr, comment=""))
                 for bk in range(0, vgprPerInput):
@@ -4609,13 +4648,46 @@ class KernelWriterAssembly(KernelWriter):
                 b_new = b*vgprPerInput*self.states.numReadsIterCoalescedB
                 bStr = vgpr("ValuB_X%u_I%u+%u+%u+%u" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset), vgprPerInput)
                 if vgprPerInput == 4:
-                  shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuB_X%u_I%u+%u+%u+%u" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset),2), comment=""))
-                  shiftK.add(VMovB32(dst=vgpr(abReg), src=vgpr(tmpVgpr),comment="test 1...cm"))
-                  shiftK.add(VMovB32(dst=vgpr(abReg+1), src=vgpr(tmpVgpr+1),comment="test 1...cm"))
-                  shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuB_X%u_I%u+%u+%u+%u+1" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset),2), comment=""))
-                  shiftK.add(VMovB32(dst=vgpr(abReg+2), src=vgpr(tmpVgpr+1),comment="test 2...cm"))
-                  shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuB_X%u_I%u+%u+%u+%u+2" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset),2), comment=""))
-                  shiftK.add(VMovB32(dst=vgpr(abReg+3), src=vgpr(tmpVgpr+1),comment="test 3...cm"))
+                  #shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuB_X%u_I%u+%u+%u+%u" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset),2), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg), src=vgpr(tmpVgpr),comment="test 1...cm"))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+1), src=vgpr(tmpVgpr+1),comment="test 1...cm"))
+                  #shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuB_X%u_I%u+%u+%u+%u+1" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset),2), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+2), src=vgpr(tmpVgpr+1),comment="test 2...cm"))
+                  #shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuB_X%u_I%u+%u+%u+%u+2" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset),2), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+3), src=vgpr(tmpVgpr+1),comment="test 3...cm"))
+                  shiftK.add(VMovB32(dst=vgpr(abReg), src=vgpr("ValuB_X%u_I%u+%u+%u+%u" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset)),comment="test 5...cm"))
+                  shiftK.add(VMovB32(dst=vgpr(abReg+1), src=vgpr("ValuB_X%u_I%u+%u+%u+%u+1" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset)),comment="test 6...cm"))
+                  shiftK.add(VMovB32(dst=vgpr(abReg+2), src=vgpr("ValuB_X%u_I%u+%u+%u+%u+2" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset)),comment="test 7...cm"))
+                  shiftK.add(VMovB32(dst=vgpr(abReg+3), src=vgpr("ValuB_X%u_I%u+%u+%u+%u+3" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset)),comment="test 8...cm"))
+                  
+                  #shiftK.add(SCmpGeI32(src0=sgpr(tmpSgprX1), src1=63, comment="check offset >63"))
+                  #shiftK.add(SCBranchSCC1(labelName=biggerOffset2.getLabelName(), comment="jump when positive"))
+                  #shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuB_X%u_I%u+%u+%u+%u" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset),2), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg), src=vgpr(tmpVgpr),comment="test 1...cm"))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+1), src=vgpr(tmpVgpr+1),comment="test 1...cm"))
+                  #shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuB_X%u_I%u+%u+%u+%u+1" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset),2), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+2), src=vgpr(tmpVgpr+1),comment="test 2...cm"))
+                  #shiftK.add(VShiftLeft(dst=vgpr(tmpVgpr, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr("ValuB_X%u_I%u+%u+%u+%u+2" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset),2), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+3), src=vgpr(tmpVgpr+1),comment="test 3...cm"))
+                  #shiftK.add(SBranch(commonPath2.getLabelName()))
+                  shiftK.add(biggerOffset2)
+                  #shiftK.add(SCmpGeI32(src0=sgpr(tmpSgprX1), src1=128, comment="check offset >128"))
+                  #shiftK.add(SCBranchSCC1(labelName=resetOffset2.getLabelName(), comment="jump when positive"))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg), src=0, comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+1), src=0, comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+2), src=vgpr("ValuB_X%u_I%u+%u+%u+%u" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset)), comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+3), src=vgpr("ValuB_X%u_I%u+%u+%u+%u+1" % (vgprBufferB_new, iuiB_new, b_new, vgprBufferB_new_offset, iuiB_new_offset)), comment=""))
+                  #shiftK.add(SSubU32(dst=sgpr(tmpSgprX1), src0=sgpr(tmpSgprX1), src1=64, comment=""))
+                  ##shiftK.add(VMovB32(dst=vgpr(abReg+2), src=0, comment="")) #WA
+                  ##shiftK.add(VMovB32(dst=vgpr(abReg+3), src=0, comment="")) #WA
+                  #shiftK.add(VShiftLeft(dst=vgpr(abReg+2, 2), shiftHex=sgpr(tmpSgprX1), src=vgpr(abReg+2, 2), comment=""))
+                  #shiftK.add(SBranch(commonPath2.getLabelName()))
+                  #shiftK.add(resetOffset2)
+                  #shiftK.add(VMovB32(dst=vgpr(abReg), src=0, comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+1), src=0, comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+2), src=0, comment=""))
+                  #shiftK.add(VMovB32(dst=vgpr(abReg+3), src=0, comment=""))
+                  #shiftK.add(commonPath2)
                 else:
                   shiftK.add(VShiftLeft(dst=vgpr(abReg, vgprPerInput), shiftHex=sgpr(tmpSgprX1), src=bStr, comment=""))
                 for bk in range(0, vgprPerInput):
@@ -5583,6 +5655,8 @@ class KernelWriterAssembly(KernelWriter):
                   self.vgprs.globalReadRegisters[tc][-1] = destVgprHi if ((hi16 or hi8) and destVgprHi != None) else self.vgprs.globalReadRegisters[tc][-1]
                   if (kernel["ProblemType"]["DataType%s"%tcDataType].isInt8() or kernel["ProblemType"]["DataType%s"%tcDataType].is8bitFloat() or tP["isM"]) and (not self.states.archCaps["HasEccHalf"]):
                     module.add(VMovB32(dst=vgpr(loadVgpr), src=0, comment="set to zero to avoid unexpected value"))
+                  #cm debug
+                  module.addComment1("cm debug global read ...1")
                   module.add(self.chooseGlobalRead(True, \
                             bpl, destVgpr=loadVgpr, \
                             addr0=vgpr(offsetVgpr), addr1=sgpr("Srd%s"%tc, 4), \
@@ -5609,6 +5683,7 @@ class KernelWriterAssembly(KernelWriter):
                   hi16=(kernel["ProblemType"]["DataType%s"%tcDataType].isHalf() or kernel["ProblemType"]["DataType%s"%tcDataType].isBFloat16()) and r%2==1
                   destVgpr="G2L%s+%u+%u"%(tc, g2lIdx, regIdx)
                   # load one element from address
+                  module.addComment1("cm debug global read ...2")
                   module.add(self.chooseGlobalRead(False, \
                             tP["bpeGR"], destVgpr=destVgprHi if (hi16 and destVgprHi != None) else destVgpr, \
                             addr0=vgpr("GlobalReadAddr%s+%u"%(tc,graIdx),2), addr1="", \
@@ -5706,6 +5781,7 @@ class KernelWriterAssembly(KernelWriter):
                 else:
                   destVgprHi = self.vgprPool.checkOut(1, 'destVgprHi')
                   destVgpr=destVgprHi
+                module.addComment1("cm debug global read ...3")
                 module.add(self.chooseGlobalRead(kernel["BufferLoad"], \
                           1, \
                           destVgpr=destVgpr, \
@@ -5926,6 +6002,7 @@ class KernelWriterAssembly(KernelWriter):
                 # TODO: is it possible to load only hi16 when no in tail? (need to check INT8 too)
                 datatype = kernel["ProblemType"]["DataType%s"%tc] if kernel["ConvertAfterDS"] else kernel["ProblemType"]["DataType"]
                 isHigh16Bits = (datatype.isHalf() or datatype.isBFloat16()) and loopCnt%2==1 if not tP["isM"] else False
+                loadModule.addComment1("cm debug global read ...4")
                 loadModule.add( self.chooseGlobalRead(kernel["BufferLoad"], \
                           bpl, destVgpr=destVgpr, \
                           addr0=vgpr(offsetVgpr), addr1=sgpr("Srd%s"%tc, 4), \
@@ -5945,6 +6022,7 @@ class KernelWriterAssembly(KernelWriter):
                 #print "IM=", type(imod.instList[-1]), imod.instList[-1],
               else: # not buffer load
                 destVgpr="G2L%s+%u"%(tc, g2lIdx + tP["shiftGR"])
+                loadModule.addComment1("cm debug global read ...5")
                 loadModule.add( self.chooseGlobalRead(False, \
                           bpl, \
                           destVgpr=destVgpr, \
@@ -5970,6 +6048,7 @@ class KernelWriterAssembly(KernelWriter):
               constOffset = unrollIdx * kernel["MatrixInstK"] // 8
               codeMod = Module("load metadata%u"%loopCnt)
               imod.middle.add(codeMod)
+              loadModule.addComment1("cm debug global read ...6")
               codeMod.add( self.chooseGlobalRead(kernel["BufferLoad"], \
                         bpl, \
                         destVgpr="ValuMetadata+%u+%u"%(offsetBlk, (wtIdx*kernel["LoopIters"]+unrollIdx)), \
@@ -7547,7 +7626,8 @@ class KernelWriterAssembly(KernelWriter):
     # Buffer-load uses one base read pointer stored in the SRD - set it here:
     module.add(SMovB32(dst=sgpr("Srd%s+0"%ch), src=sgpr("Address%s+0"%ch), comment="init SRD base address (lower)" ))
     module.add(SMovB32(dst=sgpr("Srd%s+1"%ch), src=sgpr("Address%s+1"%ch), comment="init SRD base address (upper) + other fields" ))
-    module.add(SMovB32(dst=sgpr("Srd%s+2"%ch), src=hex(0x80000000)))
+    #module.add(SMovB32(dst=sgpr("Srd%s+2"%ch), src=hex(0x80000000)))
+    module.add(SMovB32(dst=sgpr("Srd%s+2"%ch), src=hex(0xFFFFFFFF)))
     module.add(SMovB32(dst=sgpr("Srd%s+3"%ch), src="Srd127_96", comment="Set bits 127_96 in post-loop SRD"))
     module.addSpaceLine()
     return module
@@ -7805,6 +7885,7 @@ class KernelWriterAssembly(KernelWriter):
 
         numStoreInst += 1
 
+        module.addComment1("cm debug global write ...1")
         module.add(self.chooseGlobalWrite(True, bps, storeRegs[rIdx], rpv, addr0, addr1, 0, glc=isGlc, slc=isSlc, nt=isNT, comment="store D StoreRemapVectorWidth"))
 
     else:
@@ -7853,8 +7934,10 @@ class KernelWriterAssembly(KernelWriter):
           sumIdx = storeRegs[rIdx] + int(vi*rpe)
           numStoreInst += 1
           if bps == 2:
+            module.addComment1("cm debug global write ...2")
             module.add(self.chooseGlobalWrite(True, bpe, sumIdx, rpe, addr0, addr1, 0, glc=isGlc, slc=isSlc, nt=isNT, hi16=vi%2, comment="store D StoreRemapVectorWidth"))
           else:
+            module.addComment1("cm debug global write ...3")
             module.add(self.chooseGlobalWrite(True, bps, sumIdx, rpv, addr0, addr1, 0, glc=isGlc, slc=isSlc, nt=isNT, comment="store D StoreRemapVectorWidth"))
 
           if bps == 1:
@@ -9150,6 +9233,7 @@ class KernelWriterAssembly(KernelWriter):
           assert 0, "offset too large and soffset set"
       else:
         bufferLoadImpl(soffset)
+
       return rv
     else:
       flat = FLATModifiers(glc=glc, slc=slc, lds=lds)
@@ -9264,9 +9348,11 @@ class KernelWriterAssembly(KernelWriter):
 
       useBuffer = kernel["BufferLoad"]
       if dataType.isHalf() or dataType.isBFloat16():
+        module.addComment1("cm debug global read ...7")
         module.add(self.chooseGlobalRead(useBuffer, bps, biasVgpr, \
                           addr0, addr1, soffset=0, offset=offset, hi16=0, comment="load bias"))
       elif dataType.isInt32() or dataType.isSingle():
+        module.addComment1("cm debug global read ...8")
         module.add(self.chooseGlobalRead(useBuffer, bps, biasVgpr, \
                           addr0, addr1, soffset=0, offset=offset, comment="load bias"))
       elif dataType.isDouble() or dataType.isSingleComplex() :
@@ -9294,9 +9380,11 @@ class KernelWriterAssembly(KernelWriter):
       useBuffer = kernel["BufferLoad"]
 
       if kernel["ProblemType"]["ComputeDataType"].isHalf() or kernel["ProblemType"]["ComputeDataType"].isBFloat16():
+        module.addComment1("cm debug global read ...9")
         module.add(self.chooseGlobalRead(useBuffer, bps, scaleAlphaVecVgpr, \
                           addr0, addr1, soffset=0, offset=addrCalc.scaleAlphaVecOffset, hi16=0, comment="load scaleAlphaVecH"))
       elif kernel["ProblemType"]["ComputeDataType"].isInt32() or kernel["ProblemType"]["ComputeDataType"].isSingle():
+        module.addComment1("cm debug global read ...10")
         module.add(self.chooseGlobalRead(useBuffer, bps, scaleAlphaVecVgpr, \
                           addr0, addr1, soffset=0, offset=addrCalc.scaleAlphaVecOffset, comment="load scaleAlphaVecI"))
       elif kernel["ProblemType"]["ComputeDataType"].isDouble() or kernel["ProblemType"]["ComputeDataType"].isSingleComplex() :
@@ -9407,22 +9495,29 @@ class KernelWriterAssembly(KernelWriter):
         printExit("Unsupported store tc %s"%tc)
 
       useBuffer = kernel["BufferStore"]
+      #cm debug
+      if edge:
+        module.add(VCmpXLeI32(dst=EXEC(), src0=0, src1=addr0, comment="cm debug"))
       if dataType.isHalf() or dataType.isBFloat16():
         if not kernel["ProblemType"]["HighPrecisionAccumulate"]:
           # (H,H,H,H,H,H), internal H
           if self.states.asmCaps["HasWMMA"] and kernel["EnableMatrixInstruction"]:
+            module.addComment1("cm debug global write ...4")
             module.add(self.chooseGlobalWrite(useBuffer, bps, sumIdx, rpv, \
                            addr0, addr1, globalOffset, isGlc, isSlc, isNT, hi16=0, comment=comment))
           else:
+            module.addComment1("cm debug global write ...5")
             module.add(self.chooseGlobalWrite(useBuffer, bps, sumIdx//2, rpv, \
                            addr0, addr1, globalOffset, isGlc, isSlc, isNT, hi16=sumIdx%2, comment=comment))
         else:
           # (B,B,B,B,S,S), internal S
           # (H,H,H,H,H,H), internal S
           # (H,H,H,H,S,S), internal S
+          module.addComment1("cm debug global write ...6")
           module.add(self.chooseGlobalWrite(useBuffer, bps, sumIdx, rpv, \
                          addr0, addr1, globalOffset, isGlc, isSlc, isNT, hi16=0, comment=comment))
       elif dataType.isInt32() or dataType.isSingle():
+        module.addComment1("cm debug global write ...7")
         module.add(self.chooseGlobalWrite(useBuffer, bps, sumIdx, rpv, \
                        addr0, addr1, globalOffset, isGlc, isSlc, isNT, comment=comment))
       elif dataType.isDouble() or dataType.isSingleComplex():
@@ -9434,8 +9529,12 @@ class KernelWriterAssembly(KernelWriter):
                        addr0, addr1, globalOffset, isGlc, isSlc, isNT, comment=comment))
       elif dataType.isInt8() or dataType.isFloat8() or dataType.isBFloat8() or dataType.isFloat8BFloat8() or dataType.isBFloat8Float8():
         if kernel["ProblemType"]["HighPrecisionAccumulate"]:
+          module.addComment1("cm debug global write ...8")
           module.add(self.chooseGlobalWrite(useBuffer, bps, sumIdx, rpv, \
                          addr0, addr1, globalOffset, isGlc, isSlc, isNT, comment=comment))
+      #cm debug
+      if edge:
+        module.add(SSetMask(dst=EXEC(), src=-1, comment="cm debug reset mask" ))
     return module
 
   ##############################################################################
@@ -9475,12 +9574,14 @@ class KernelWriterAssembly(KernelWriter):
 
     if dataType.isHalf():
       hi16 = 0 if self.states.HHH_WMMA else (vc0 % 2)
+      module.addComment1("cm debug global read ...11")
       module.add(self.chooseGlobalRead(useBuffer, bps, data, \
                 addr0, addr1, soffset=0, offset=globalOffset, \
                 glc=isGlc, slc=isSlc, nt=isNT, lds=False,
                 hi16=hi16,
                 comment="load %s"%tc))
     elif dataType.isInt8() or dataType.is8bitFloat():
+     module.addComment1("cm debug global read ...12")
      module.add(self.chooseGlobalRead(useBuffer, bps, data, \
                 addr0, addr1, soffset=0, offset=globalOffset, \
                 glc=isGlc, slc=isSlc, nt=isNT, lds=False, \
@@ -9492,6 +9593,7 @@ class KernelWriterAssembly(KernelWriter):
          dataType.isDouble() or \
          dataType.isSingleComplex() or \
          dataType.isDoubleComplex():
+      module.addComment1("cm debug global read ...13")
       module.add(self.chooseGlobalRead(useBuffer, bps, data, \
                 addr0, addr1, soffset=0, offset=globalOffset, \
                 glc=isGlc, slc=isSlc, nt=isNT, lds=False, \
@@ -9906,9 +10008,11 @@ class KernelWriterAssembly(KernelWriter):
       rpe = biasDataType.numBytes() / self.states.bpr
       rpv = rpe * gwvw
       if dataType.isHalf() or dataType.isBFloat16():
+        module.addComment1("cm debug global write ...9")
         module.add(self.chooseGlobalWrite(useBuffer, bps, tmpVgprN, rpv, \
                           addr0, addr1, offset=0, hi16=0, comment="global store bias"))
       elif dataType.isInt32() or dataType.isSingle():
+        module.addComment1("cm debug global write ...10")
         module.add(self.chooseGlobalWrite(useBuffer, bps, tmpVgprN, rpv, \
                           addr0, addr1, offset=0, comment="global store bias"))
       elif dataType.isDouble() or dataType.isSingleComplex() :
@@ -9922,9 +10026,11 @@ class KernelWriterAssembly(KernelWriter):
         rpe = biasDataType.numBytes() / self.states.bpr
         rpv = rpe
         if dataType.isHalf() or dataType.isBFloat16():
+          module.addComment1("cm debug global write ...11")
           module.add(self.chooseGlobalWrite(useBuffer, bps, tmpVgprN, rpv, \
                             addr0, addr1, offset=globalOffset, hi16=0, comment="global store bias"))
         elif dataType.isInt32() or dataType.isSingle():
+          module.addComment1("cm debug global write ...12")
           module.add(self.chooseGlobalWrite(useBuffer, bps, tmpVgprN, rpv, \
                             addr0, addr1, offset=globalOffset, comment="global store bias"))
         elif dataType.isDouble() or dataType.isSingleComplex() :
@@ -10206,7 +10312,7 @@ class KernelWriterAssembly(KernelWriter):
     if self.states.asmCaps["HasSCMPK"]:
       imodscmpk.add(Inst0(sgpr(s0), simm16, comment=comment))
     else:
-      tmpScmp = self.sgprPool.checkOut(1)
+      tmpScmp = self.sgprPool.checkOut(1, preventOverflow=False)
       imodscmpk.add(SMovB32(sgpr(tmpScmp), simm16))
       imodscmpk.add(Inst1(src0=sgpr(s0), src1=sgpr(tmpScmp), comment=comment))
       self.sgprPool.checkIn(tmpScmp)

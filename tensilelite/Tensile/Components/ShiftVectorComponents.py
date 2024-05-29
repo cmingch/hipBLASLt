@@ -48,7 +48,7 @@ class ShiftVectorComponentsMFMA(ShiftVectorComponents):
             else
                 use partial thread algorithm
         """
-        return Module("ShiftVectorComponentsMFMA (Empty)")
+        #return Module("ShiftVectorComponentsMFMA (Empty)")
 
         # common parameter
         tc              = tP["tensorChar"]
