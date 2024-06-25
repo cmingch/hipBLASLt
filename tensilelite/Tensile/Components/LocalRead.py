@@ -82,9 +82,10 @@ class LocalReadMFMA(LocalRead):
         else:
             lrvwTile = 1
         numElementPerRead = 1 if kernel["ConvertAfterDS"] else (int(blockWidth * 4) // tP['bpe'] // lrvwTile)
+        isgfx12 = writer.states.version[0] == 12
 
         # pack register
-        if True: #writer.states.archCaps["HasEccHalf"]:
+        if writer.states.archCaps["HasEccHalf"] or isgfx12:
             needPack = tP["bpeDS"] < 4 and not kernel["UnrollMajorLDS%s"%tc] and not tP["isM"]
             # specify I8 for the case that input number is equal to the localread blockwidth but need to split low and high bytes to different vgprs.
             needPackMetadata = tP["isM"] and ((kernel["MIInputPerThread%s"%tc] * tP["bpeDS"] / (blockWidth * 4) > 1) or (kernel["ProblemType"]["DataType"].numBytes() == 1 and writer.states.lrvwTileMetadata > 1))
@@ -285,7 +286,7 @@ class LocalReadMFMA(LocalRead):
                                     lowVgpr  = vgpr("Valu%s_X%u_I%u+%u"%(tc, bufferIdx, iui, valufIdx/2 - 1), numVgpr)
                                     highVgpr = vgpr("Valu%s_X%u_I%u+%u"%(tc, bufferIdx, iui, valufIdx/2), numVgpr)
                                     packCode.add(VLShiftLeftOrB32(dst=lowVgpr, src0=highVgpr, shiftHex=hex(0x10), src1=lowVgpr, comment="pack two int8x2 Vgpr to one Vgpr"))
-                            elif True: #writer.states.archCaps["HasEccHalf"]: # ECC pack
+                            elif writer.states.archCaps["HasEccHalf"] or isgfx12: # ECC pack
                                 if highBitsForHalf:
                                     highVgpr = vgpr("Valu%s_X%u_I%u_D%u+%u"%(tc, bufferIdx, iui, rIdx%2, valuiIdx), numVgpr)
                                     #packCode.add(VOrB32(dst=baseLRVgpr, src0=baseLRVgpr, src1=highVgpr, comment="pack two half Vgpr to one Vgpr"))

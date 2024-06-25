@@ -558,6 +558,8 @@ class KernelWriter(metaclass=abc.ABCMeta):
     localWriteCode = self.codes.perIterLocalWrite[iteration]
     isBarrier = kernel["LoopIters"] - self.states.numItersPLR
     hasLocalRead = localReadCode.countType(LocalReadInstruction)
+    isgfx12 = self.states.version[0] == 12
+
     # Default schedule is other, local reads, then local writes:
     if self.states.scheduleIterAlg==0:
       # simple schedule, just add the modules in-order
@@ -618,7 +620,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
       # interleave pack code
       # BF16 or FP16: each packCode is for one 32-bit reg,  1 packing inst: half-to-single x1
       # INT8        : each packCode is for one 32-bit regs, 3 packing inst: byte-to-half x2 + half-to-single x1
-      if True: #self.states.archCaps["HasEccHalf"]: cm review
+      if self.states.archCaps["HasEccHalf"] or isgfx12:
         instPerRegPack = 1 / kernel["ProblemType"]["DataType"].numRegisters() - 1
       else:
         instPerRegPack = 1 if (kernel["ProblemType"]["DataType"].numRegisters() == 0.25) else 0
@@ -674,7 +676,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
           packAIdx += instPerPack if i//(kernel["MIWaveTileA"]+kernel["MIWaveTileA"]*kernel["MIWaveTileB"]*(i//(kernel["MIWaveTileA"]*kernel["MIWaveTileB"]))) == 0 else 0
           packBIdx += instPerPack if i % kernel["MIWaveTileA"] == 0 else 0
           # blockWidth < 1, means 0.5 or 0.25 (BF,H,Int8)
-          if True: #0502 self.states.archCaps["HasEccHalf"]:
+          if self.states.archCaps["HasEccHalf"] or isgfx12:
             packAIdx = packAIdx if tPA["bpe"] < 4 and not kernel["UnrollMajorLDSA"] else 0
             packBIdx = packBIdx if tPB["bpe"] < 4 and not kernel["UnrollMajorLDSB"] else 0
           else:
@@ -789,7 +791,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
       # BF16 or FP16: each packCode is for one 32-bit reg,  1 packing inst: half-to-single x1
       # INT8        : each packCode is for one 32-bit regs, 3 packing inst: byte-to-half x2 + half-to-single x1
       ####
-      if True: #self.states.archCaps["HasEccHalf"]: cm review
+      if self.states.archCaps["HasEccHalf"] or isgfx12:
         instPerRegPack = 1 / kernel["ProblemType"]["DataType"].numRegisters() - 1
       else:
         instPerRegPack = 1 if (kernel["ProblemType"]["DataType"].numRegisters() == 0.25) else 0
@@ -1160,7 +1162,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
             else:
               packMIdx += instPerPackM if i//(kernel["MIWaveTileA"]+kernel["MIWaveTileA"]*kernel["MIWaveTileB"]*(i//(kernel["MIWaveTileA"]*kernel["MIWaveTileB"]))) == 0 else 0
           # blockWidth < 1, means 0.5 or 0.25 (BF,H,Int8)
-          if True: # 0502 self.states.archCaps["HasEccHalf"]:
+          if self.states.archCaps["HasEccHalf"] or isgfx12:
             packAIdx = packAIdx if tPA["bpe"] < 4 and (not kernel["UnrollMajorLDSA"] or kernel["ConvertAfterDS"]) else 0
             packBIdx = packBIdx if tPB["bpe"] < 4 and (not kernel["UnrollMajorLDSB"] or kernel["ConvertAfterDS"]) else 0
           else:
@@ -3091,13 +3093,15 @@ class KernelWriter(metaclass=abc.ABCMeta):
     self.states.a.numVgprG2L = 0
     numVgprG2Local = 0
     numVgprG2LAllocatedLocal = 0
+    isgfx12 = self.states.version[0] == 12
+
     if not kernel["DirectToLdsA"] or self.do["KeepDirectToLdsAlloc"]:
       bpeMax = tensorParametersA["bpeDS"] if kernel["ConvertAfterDS"] else max(tensorParametersA["bpeGR"], tensorParametersA["bpe"])
       self.states.a.numVgprG2L = roundUp((kernel["NumLoadsCoalescedA"] * kernel["NumLoadsPerpendicularA"] * \
         kernel["GlobalReadVectorWidthA"] * bpeMax) / (float)(self.states.bpr))
       numVgprG2Local = roundUp((kernel["NumLoadsCoalescedA"] * kernel["NumLoadsPerpendicularA"] * \
         kernel["GlobalReadVectorWidthA"] * tensorParametersA["bpe"]) / (float)(self.states.bpr))
-      if True: #self.states.archCaps["HasEccHalf"]:
+      if self.states.archCaps["HasEccHalf"] or isgfx12:
         tpA      = self.states.bpr if bpeMax * vwa < self.states.bpr else bpeMax * vwa
         tpALocal = self.states.bpr if tensorParametersA["bpe"] * vwa < self.states.bpr else tensorParametersA["bpe"] * vwa
         self.states.a.numVgprG2LAllocated = roundUp((kernel["NumLoadsCoalescedA"] * kernel["NumLoadsPerpendicularA"] * \
@@ -3120,7 +3124,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
         kernel["GlobalReadVectorWidthB"] * bpeMax) / (float)(self.states.bpr))
       numVgprG2Local = roundUp((kernel["NumLoadsCoalescedB"] * kernel["NumLoadsPerpendicularB"] * \
         kernel["GlobalReadVectorWidthB"] * tensorParametersB["bpe"]) / (float)(self.states.bpr))
-      if True: #self.states.archCaps["HasEccHalf"]:
+      if self.states.archCaps["HasEccHalf"] or isgfx12:
         tpB      = self.states.bpr if bpeMax * vwb < self.states.bpr else bpeMax * vwb
         tpBLocal = self.states.bpr if tensorParametersB["bpe"] * vwb < self.states.bpr else tensorParametersB["bpe"] * vwb
         self.states.b.numVgprG2LAllocated = roundUp((kernel["NumLoadsCoalescedB"] * kernel["NumLoadsPerpendicularB"] * \
