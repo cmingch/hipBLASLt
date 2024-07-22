@@ -4884,12 +4884,16 @@ class KernelWriterAssembly(KernelWriter):
 
           # replace 0 for same thread
           if numMIInput > 1 and kernel["AssertSummationElementMultiple"] < 8:
-            abReg   = self.vgprPool.checkOutAligned(vgprPerInput, 2 if vgprPerInput>1 else 1, "abReg")
+            abReg   = self.vgprPool.checkOutAligned(vgprPerInput, vgprPerInput, "abReg")
             shiftK.add(VSubU32(dst=vgpr(kReg), src0=sgpr(loopCntSgpr), src1=vgpr(kReg), comment="get distance between size and k index"))
             shiftK.add(VCmpLtI32(dst=sgpr(tmpSgprX2, self.states.laneSGPRCount), src0=vgpr(kReg), src1=numMIInput, comment="set partial 0 if distance less than input per thread"))
             shiftK.add(SAndB32(dst=sgpr(tmpSgprX1), src0=sgpr(loopCntSgpr), src1=numMIInput-1, comment="get inputs for edge thread"))
+            shiftK.add(SCmpGtI32(src0=sgpr(tmpSgprX1), src1=0, comment="check offset > 0"))
+            not_shift = Label(label=self.labels.getNameInc("not_require_Shift"), comment="")
+            shiftK.add(SCBranchSCC0(labelName=not_shift.getLabelName(), comment="jump when not positive"))
             shiftK.add(SSubU32(dst=sgpr(tmpSgprX1), src0=numMIInput, src1=sgpr(tmpSgprX1), comment="use shift to fill 0 for outside element"))
             shiftK.add(SLShiftLeftB32(dst=sgpr(tmpSgprX1), shiftHex=log2(shiftPerElement), src=sgpr(tmpSgprX1), comment="use shift to fill 0 for outside element"))
+            shiftK.add(not_shift)
             if vgprPerInput == 1:
               VShiftLeft = VLShiftLeftB32
             elif vgprPerInput == 2:
@@ -4951,7 +4955,6 @@ class KernelWriterAssembly(KernelWriter):
                   shiftK.add(SBranch(b_common.getLabelName()))
                   shiftK.add(b_shift)
                   shiftK.add(SSubU32(dst=sgpr(tmpSgprX1), src0=sgpr(tmpSgprX1), src1=64, comment=""))
-                  shiftK.add(VMovB32(dst=vgpr(abReg), src=0, comment=""))
                   shiftK.add(VMovB32(dst=vgpr(abReg), src=0, comment=""))
                   shiftK.add(VMovB32(dst=vgpr(abReg+1), src=0, comment=""))
                   shiftK.add(VShiftLeft(dst=vgpr(abReg+2,2), shiftHex=sgpr(tmpSgprX1), src=bStr, comment=""))
