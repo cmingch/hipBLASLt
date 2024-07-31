@@ -2,7 +2,7 @@
  *
  * MIT License
  *
- * Copyright (C) 2019-2023 Advanced Micro Devices, Inc.
+ * Copyright (C) 2019-2024 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,10 +36,12 @@
 namespace tensile_hip_f8_impl
 {
 
-    template <int wm, int we, typename T, bool negative_zero_nan, bool clip>
+    //template <int wm, int we, typename T, bool negative_zero_nan, bool clip>
+    template <int wm, int we, typename T, bool is_fnuz, bool clip>
     HIP_HOST_DEVICE uint8_t cast_to_f8(T _x, bool stoch = false, uint32_t rng = 0);
 
-    template <int wm, int we, typename T, bool negative_zero_nan>
+    //template <int wm, int we, typename T, bool negative_zero_nan>
+    template <int wm, int we, typename T, bool is_fnuz>
     HIP_HOST_DEVICE T cast_from_f8(uint8_t x);
 
 } // namespace hip_f8_impl
@@ -111,7 +113,24 @@ namespace tensile_gfx940_f8_impl
     }
 
 }
+#elif defined(__gfx1200__)
+//cm todo
+namespace tensile_gfx1200_f8_impl
+{
+    template <bool isE2M5, bool stochastic_rounding>
+    inline HIP_DEVICE uint8_t cast_to_f8_from_f32(float v, uint32_t rng = 0)
+    {
+        uint8_t i8data;
+        if(isE2M5)
+        {
+        }
+        else
+        {
 
+        }
+        return i8data;
+    }
+}
 #endif
 
 //  Naming convension of datatype in hip header file
@@ -200,6 +219,24 @@ struct Float8_BFloat8
     }
     // only host code is simulated
     explicit HIP_HOST
+#elif defined(__gfx1200__)
+//cm todo
+    // NOTE: ON-DEVICE... always optimal bias
+    explicit HIP_DEVICE Float8_BFloat8(float                v,
+                                       hip_f8_rounding_mode rm  = hip_f8_rounding_mode::standard,
+                                       uint32_t             rng = 0)
+    {
+        // runtime branch, use default constructor and explicit_cast() if want to avoid it
+
+        if(rm == hip_f8_rounding_mode::stochastic)
+            data = tensile_gfx1200_f8_impl::cast_to_f8_from_f32<T == hip_f8_type::bf8, true>(v, rng);
+        else
+            data
+                = tensile_gfx1200_f8_impl::cast_to_f8_from_f32<T == hip_f8_type::bf8, false>(v, rng);
+    }
+    // only host code is simulated
+    explicit HIP_HOST
+
 #else // gfx940
     explicit HIP_HOST_DEVICE
 #endif // gfx940
@@ -210,13 +247,13 @@ struct Float8_BFloat8
         // NOTE: made clipping default again
         if(T == hip_f8_type::bf8)
         {
-            if(get_hip_f8_bias_mode())
+            if(get_hip_f8_bias_mode()) //cm todo
             {
                 data = tensile_hip_f8_impl::
 #ifdef DOWNCAST_CLIPPING_ON
-                    cast_to_f8<2, 5, float, true /*negative_zero_nan*/, true /*clip*/>(
+                    cast_to_f8<2, 5, float, false /*is_fnuz*/, true /*clip*/>( //cm todo
 #else
-                    cast_to_f8<2, 5, float, true /*negative_zero_nan*/, false /*clip*/>(
+                    cast_to_f8<2, 5, float, false /*is_fnuz*/, false /*clip*/>( //cm todo
 #endif
                         v, (rm == hip_f8_rounding_mode::stochastic), rng);
             }
@@ -224,22 +261,22 @@ struct Float8_BFloat8
             {
                 data = tensile_hip_f8_impl::
 #ifdef DOWNCAST_CLIPPING_ON
-                    cast_to_f8<2, 5, float, false /*negative_zero_nan*/, true /*clip*/>(
+                    cast_to_f8<2, 5, float, false /*is_fnuz*/, true /*clip*/>( //cm todo
 #else
-                    cast_to_f8<2, 5, float, false /*negative_zero_nan*/, false /*clip*/>(
+                    cast_to_f8<2, 5, float, false /*is_fnuz*/, false /*clip*/>( //cm todo
 #endif
                         v, (rm == hip_f8_rounding_mode::stochastic), rng);
             }
         }
         else /* fp8*/
         {
-            if(get_hip_f8_bias_mode())
+            if(get_hip_f8_bias_mode()) //cm todo
             {
                 data = tensile_hip_f8_impl::
 #ifdef DOWNCAST_CLIPPING_ON
-                    cast_to_f8<3, 4, float, true /*negative_zero_nan*/, true /*clip*/>(
+                    cast_to_f8<3, 4, float, false /*is_fnuz*/, true /*clip*/>(
 #else
-                    cast_to_f8<3, 4, float, true /*negative_zero_nan*/, true /*clip*/>(
+                    cast_to_f8<3, 4, float, false /*is_fnuz*/, true /*clip*/>(
 #endif
                         v, (rm == hip_f8_rounding_mode::stochastic), rng);
             }
@@ -247,9 +284,9 @@ struct Float8_BFloat8
             {
                 data = tensile_hip_f8_impl::
 #ifdef DOWNCAST_CLIPPING_ON
-                    cast_to_f8<3, 4, float, false /*negative_zero_nan*/, true /*clip*/>(
+                    cast_to_f8<3, 4, float, false /*is_fnuz*/, true /*clip*/>(
 #else
-                    cast_to_f8<3, 4, float, false /*negative_zero_nan*/, false /*clip*/>(
+                    cast_to_f8<3, 4, float, false /*is_fnuz*/, false /*clip*/>(
 #endif
                         v, (rm == hip_f8_rounding_mode::stochastic), rng);
             }
@@ -302,7 +339,23 @@ struct Float8_BFloat8
         return fval;
     }
     explicit inline HIP_HOST operator float() const
-
+#elif defined(__gfx1200__)
+//cm todo
+    // builtin conversion
+    explicit inline HIP_DEVICE operator float() const
+    {
+        float    fval;
+        uint32_t i32val = static_cast<uint32_t>(data);
+        if(T == hip_f8_type::bf8)
+            // workaround: use inline asm instead of builtin function
+            // fval = __builtin_amdgcn_cvt_f32_bf8(i32val, 0);
+            asm volatile("v_cvt_f32_bf8 %0, %1 src0_sel:BYTE_0" : "=v"(fval) : "v"(i32val));
+        else
+            // workaround: use inline asm instead of builtin function
+            // fval = __builtin_amdgcn_cvt_f32_fp8(i32val, 0);
+            asm volatile("v_cvt_f32_fp8 %0, %1 src0_sel:BYTE_0" : "=v"(fval) : "v"(i32val));
+        return fval;
+    }
 #else // non gfx940
 
     explicit inline HIP_HOST_DEVICE operator float() const
@@ -310,14 +363,14 @@ struct Float8_BFloat8
     {
         if(T == hip_f8_type::bf8)
         {
-            if(get_hip_f8_bias_mode())
+            if(get_hip_f8_bias_mode()) //cm todo
             {
-                return tensile_hip_f8_impl::cast_from_f8<2, 5, float, true /*negative_zero_nan*/>(
+                return tensile_hip_f8_impl::cast_from_f8<2, 5, float, false /*is_fnuz*/>(
                     data);
             }
             else
             {
-                return tensile_hip_f8_impl::cast_from_f8<2, 5, float, false /*negative_zero_nan*/>(
+                return tensile_hip_f8_impl::cast_from_f8<2, 5, float, false /*is_fnuz*/>(
                     data);
             }
         }
@@ -325,12 +378,12 @@ struct Float8_BFloat8
         {
             if(get_hip_f8_bias_mode())
             {
-                return tensile_hip_f8_impl::cast_from_f8<3, 4, float, true /*negative_zero_nan*/>(
+                return tensile_hip_f8_impl::cast_from_f8<3, 4, float, false /*is_fnuz*/>(
                     data);
             }
             else
             {
-                return tensile_hip_f8_impl::cast_from_f8<3, 4, float, false /*negative_zero_nan*/>(
+                return tensile_hip_f8_impl::cast_from_f8<3, 4, float, false /*is_fnuz*/>(
                     data);
             }
         }
@@ -596,6 +649,11 @@ inline __host__ __device__ tensile_float8
     tensile_float8 val;
     val.data = tensile_gfx940_f8_impl::cast_to_f8_from_f32<false, true>(a, rng);
     return val;
+#elif defined(__gfx1200__)
+//cm todo
+    tensile_float8 val;
+    val.data = tensile_gfx1200_f8_impl::cast_to_f8_from_f32<false, true>(a, rng);
+    return val;
 #else
     return tensile_float8(float(a), hip_f8_rounding_mode::stochastic, rng);
 #endif
@@ -608,6 +666,11 @@ inline __host__ __device__ tensile_float8
 #ifdef __gfx940__
     tensile_float8 val;
     val.data = tensile_gfx940_f8_impl::cast_to_f8_from_f32<false, false>(a, rng);
+    return val;
+#elif defined(__gfx1200__)
+//cm todo
+    tensile_float8 val;
+    val.data = tensile_gfx1200_f8_impl::cast_to_f8_from_f32<false, false>(a, rng);
     return val;
 #else
     return tensile_float8(float(a), hip_f8_rounding_mode::standard, rng);
@@ -622,6 +685,10 @@ inline __host__ __device__ tensile_bfloat8
     tensile_bfloat8 val;
     val.data = tensile_gfx940_f8_impl::cast_to_f8_from_f32<true, true>(a, rng);
     return val;
+#elif defined(__gfx1200__)
+    tensile_bfloat8 val;
+    val.data = tensile_gfx1200_f8_impl::cast_to_f8_from_f32<true, true>(a, rng);
+    return val;
 #else
     return tensile_bfloat8(float(a), hip_f8_rounding_mode::stochastic, rng);
 #endif
@@ -634,6 +701,10 @@ inline __host__ __device__ tensile_bfloat8
 #ifdef __gfx940__
     tensile_bfloat8 val;
     val.data = tensile_gfx940_f8_impl::cast_to_f8_from_f32<true, false>(a, rng);
+    return val;
+#elif defined(__gfx1200__)
+    tensile_bfloat8 val;
+    val.data = tensile_gfx1200_f8_impl::cast_to_f8_from_f32<true, false>(a, rng);
     return val;
 #else
     return tensile_bfloat8(float(a), hip_f8_rounding_mode::standard, rng);
