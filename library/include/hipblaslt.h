@@ -56,6 +56,17 @@
 #include <hip/hip_runtime.h>
 #include <hip/hip_runtime_api.h>
 
+//#if defined(HIPBLASLT_USE_HIP_FP8) //cm todo
+#ifdef ROCM_USE_FLOAT8 //cm todo
+#include <hip/hip_fp8.h>
+typedef enum hipblasltDatatype { //temp solution
+HIP_R_8F_E4M3 = 28,
+HIP_R_8F_E5M2 = 29,
+} hipblasltDatatype;
+//typedef __hip_fp8_e4m3 hipblaslt_f8_ocp;
+//typedef __hip_fp8_e5m2 hipblaslt_bf8_ocp;
+#endif
+
 #if defined(__HIP_PLATFORM_AMD__)
 #include "hipblaslt-types.h"
 #endif

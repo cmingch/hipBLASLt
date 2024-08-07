@@ -2,7 +2,7 @@
  *
  * MIT License
  *
- * Copyright (C) 2022-2023 Advanced Micro Devices, Inc.
+ * Copyright (C) 2022-2024 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -58,6 +58,11 @@ typedef hip_bfloat16 hipblasLtBfloat16;
 
 typedef int8_t  hipblasLtInt8;
 typedef int32_t hipblasLtInt32;
+
+#ifdef ROCM_USE_FLOAT8 //cm todo
+typedef __hip_fp8_e4m3 hipblaslt_f8_ocp;
+typedef __hip_fp8_e5m2 hipblaslt_bf8_ocp;
+#endif
 
 #ifdef __cplusplus
 }

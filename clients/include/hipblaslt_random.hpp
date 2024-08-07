@@ -147,6 +147,9 @@ public:
         x.bits = 0x80;
         return x.value;
     }
+#ifdef ROCM_USE_FLOAT8 //cm todo
+sngeklrngklrseth
+#endif
 };
 
 /* ============================================================================================ */

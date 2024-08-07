@@ -177,6 +177,119 @@ bool allclose_check_general(char    allclose_type,
     return true;
 }
 
+#ifdef ROCM_USE_FLOAT8 //cm todo
+template <typename T,
+          std::enable_if_t<!(std::is_same<T, hipblaslt_f8_ocp>{}
+                             || std::is_same<T, hipblaslt_bf8_ocp>{}),
+                           int> = 0>
+bool allclose_check_general(char    allclose_type,
+                            int64_t M,
+                            int64_t N,
+                            int64_t lda,
+                            T*      hCPU,
+                            T*      hGPU,
+                            double& hipblaslt_atol,
+                            double& hipblaslt_rtol)
+{
+    if(M * N == 0)
+        return 0;
+    size_t              size = N * (size_t)lda;
+    host_vector<double> hCPU_double(size);
+    host_vector<double> hGPU_double(size);
+
+    for(int64_t i = 0; i < N; i++)
+    {
+        for(int64_t j = 0; j < M; j++)
+        {
+            size_t idx       = j + i * (size_t)lda;
+            hCPU_double[idx] = double(hCPU[idx]);
+            hGPU_double[idx] = double(hGPU[idx]);
+        }
+    }
+
+    std::vector<double> atols{1e-5, 1e-4, 1e-3, 1e-2, 1e-1};
+    std::vector<double> rtols{1e-5, 1e-4, 1e-3, 1e-2, 1e-1};
+    for(auto& atol : atols)
+    {
+        for(auto& rtol : rtols)
+        {
+            if(allclose(&size, hCPU_double.data(), hGPU_double.data(), atol, rtol, false))
+            {
+                hipblaslt_atol = atol;
+                hipblaslt_rtol = rtol;
+                //early termination for accending rtols
+                break;
+            }
+        }
+        //early termination for accending atols
+        if(hipblaslt_atol != 1)
+            break;
+    }
+
+    if(hipblaslt_atol == 1)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+template <typename T,
+          std::enable_if_t<(std::is_same<T, hipblaslt_f8_ocp>{}
+                            || std::is_same<T, hipblaslt_bf8_ocp>{}),
+                           int> = 0>
+bool allclose_check_general(char    allclose_type,
+                            int64_t M,
+                            int64_t N,
+                            int64_t lda,
+                            T*      hCPU,
+                            T*      hGPU,
+                            double& hipblaslt_atol,
+                            double& hipblaslt_rtol)
+{
+    if(M * N == 0)
+        return 0;
+    size_t              size = N * (size_t)lda;
+    host_vector<double> hCPU_double(size);
+    host_vector<double> hGPU_double(size);
+
+    for(int64_t i = 0; i < N; i++)
+    {
+        for(int64_t j = 0; j < M; j++)
+        {
+            size_t idx       = j + i * (size_t)lda;
+            hCPU_double[idx] = double(float(hCPU[idx]));
+            hGPU_double[idx] = double(float(hGPU[idx]));
+        }
+    }
+
+    std::vector<double> atols{1e-5, 1e-4, 1e-3, 1e-2, 1e-1};
+    std::vector<double> rtols{1e-5, 1e-4, 1e-3, 1e-2, 1e-1};
+    for(auto& atol : atols)
+    {
+        for(auto& rtol : rtols)
+        {
+            if(allclose(&size, hCPU_double.data(), hGPU_double.data(), atol, rtol, false))
+            {
+                hipblaslt_atol = atol;
+                hipblaslt_rtol = rtol;
+                //early termination for accending rtols
+                break;
+            }
+        }
+        //early termination for accending atols
+        if(hipblaslt_atol != 1)
+            break;
+    }
+
+    if(hipblaslt_atol == 1)
+    {
+        return false;
+    }
+
+    return true;
+}
+#endif
 // For BF16 and half, we convert the results to double first
 template <
     typename T,

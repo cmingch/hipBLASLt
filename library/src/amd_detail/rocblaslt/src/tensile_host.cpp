@@ -183,6 +183,12 @@ namespace
             return Tensile::DataType::Float8;
         case HIP_R_8F_E5M2_FNUZ:
             return Tensile::DataType::BFloat8;
+#ifdef ROCM_USE_FLOAT8 //cm todo
+        case HIP_R_8F_E4M3:
+            return Tensile::DataType::Float8;
+        case HIP_R_8F_E5M2:
+            return Tensile::DataType::BFloat8;
+#endif
         case HIP_R_8I:
             return Tensile::DataType::Int8;
         case HIP_R_32I:
@@ -209,6 +215,12 @@ namespace
             return HIP_R_8F_E4M3_FNUZ;
         case Tensile::DataType::BFloat8:
             return HIP_R_8F_E5M2_FNUZ;
+#ifdef ROCM_USE_FLOAT8 //cm todo
+        case Tensile::DataType::Float8:
+            return HIP_R_8F_E4M3;
+        case Tensile::DataType::BFloat8:
+            return HIP_R_8F_E5M2;
+#endif
         case Tensile::DataType::Int8:
             return HIP_R_8I;
         case Tensile::DataType::Int32:
@@ -231,6 +243,12 @@ namespace
         case rocblaslt_compute_f32_fast_bf8_fnuz:
         case rocblaslt_compute_f32_fast_f8bf8_fnuz:
         case rocblaslt_compute_f32_fast_bf8f8_fnuz:
+#ifdef ROCM_USE_FLOAT8 //cm todo
+        case rocblaslt_compute_f32_fast_f8_ocp:
+        case rocblaslt_compute_f32_fast_bf8_ocp:
+        case rocblaslt_compute_f32_fast_f8bf8_ocp:
+        case rocblaslt_compute_f32_fast_bf8f8_ocp:
+#endif
             return Tensile::DataType::Float;
         case rocblaslt_compute_f64:
             return Tensile::DataType::Double;
@@ -264,6 +282,16 @@ namespace
             return Tensile::DataType::Float8BFloat8;
         case rocblaslt_compute_f32_fast_bf8f8_fnuz:
             return Tensile::DataType::BFloat8Float8;
+#ifdef ROCM_USE_FLOAT8 //cm todo
+        case rocblaslt_compute_f32_fast_f8_ocp:
+            return Tensile::DataType::Float8;
+        case rocblaslt_compute_f32_fast_bf8_ocp:
+            return Tensile::DataType::BFloat8;
+        case rocblaslt_compute_f32_fast_f8bf8_ocp:
+            return Tensile::DataType::Float8BFloat8;
+        case rocblaslt_compute_f32_fast_bf8f8_ocp:
+            return Tensile::DataType::BFloat8Float8;
+#endif
         default:;
         }
 

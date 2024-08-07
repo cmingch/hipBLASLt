@@ -36,11 +36,9 @@
 namespace tensile_hip_f8_impl
 {
 
-    //template <int wm, int we, typename T, bool negative_zero_nan, bool clip>
     template <int wm, int we, typename T, bool is_fnuz, bool clip>
     HIP_HOST_DEVICE uint8_t cast_to_f8(T _x, bool stoch = false, uint32_t rng = 0);
 
-    //template <int wm, int we, typename T, bool negative_zero_nan>
     template <int wm, int we, typename T, bool is_fnuz>
     HIP_HOST_DEVICE T cast_from_f8(uint8_t x);
 
@@ -114,18 +112,62 @@ namespace tensile_gfx940_f8_impl
 
 }
 #elif defined(__gfx1200__)
-//cm todo
 namespace tensile_gfx1200_f8_impl
 {
     template <bool isE2M5, bool stochastic_rounding>
     inline HIP_DEVICE uint8_t cast_to_f8_from_f32(float v, uint32_t rng = 0)
     {
         uint8_t i8data;
+        union
+        {
+            float    fval;
+            uint32_t i32val;
+            uint8_t  i8val[4]; // not endian independent
+        } val;
+
+        uint32_t ival = 0;
+        val.fval      = v;
         if(isE2M5)
         {
+#ifdef DOWNCAST_CLIPPING_ON
+            if((val.i32val & 0x7F800000) != 0x7F800000) // all exp bits  are 1 --> NaN or INF
+                val.fval = __builtin_amdgcn_fmed3f(val.fval, 57344.0, -57344.0);
+#endif
+
+            if(stochastic_rounding)
+            {
+                ival       = __builtin_amdgcn_cvt_sr_bf8_f32(val.fval, rng, ival, 0); // 0 pos
+                val.i32val = ival;
+                i8data     = val.i8val[0]; // little endian
+            }
+            else // RNE CVT
+            {
+                ival = __builtin_amdgcn_cvt_pk_bf8_f32(
+                    val.fval, val.fval, ival, false); // false -> WORD0
+                val.i32val = ival;
+                i8data     = val.i8val[0];
+            }
         }
         else
         {
+#ifdef DOWNCAST_CLIPPING_ON
+            if((val.i32val & 0x7F800000) != 0x7F800000) // all exp bits  are 1 --> NaN or INF
+                val.fval = __builtin_amdgcn_fmed3f(val.fval, 448.0, -448.0);
+#endif
+
+            if(stochastic_rounding)
+            {
+                ival       = __builtin_amdgcn_cvt_sr_fp8_f32(val.fval, rng, ival, 0); // 0 pos
+                val.i32val = ival;
+                i8data     = val.i8val[0]; // little endian
+            }
+            else // RNE CVT
+            {
+                ival = __builtin_amdgcn_cvt_pk_fp8_f32(
+                    val.fval, val.fval, ival, false); // false -> WORD0
+                val.i32val = ival;
+                i8data     = val.i8val[0];
+            }
 
         }
         return i8data;
@@ -194,6 +236,10 @@ static inline HIP_HOST_DEVICE bool get_hip_f8_bias_mode()
 #endif
 }
 
+#ifdef HIP_FP8_TYPE_FNUZ
+frbsbrstbhn
+#endif
+
 // data type
 template <hip_f8_type T>
 struct Float8_BFloat8
@@ -220,7 +266,6 @@ struct Float8_BFloat8
     // only host code is simulated
     explicit HIP_HOST
 #elif defined(__gfx1200__)
-//cm todo
     // NOTE: ON-DEVICE... always optimal bias
     explicit HIP_DEVICE Float8_BFloat8(float                v,
                                        hip_f8_rounding_mode rm  = hip_f8_rounding_mode::standard,
@@ -340,22 +385,18 @@ struct Float8_BFloat8
     }
     explicit inline HIP_HOST operator float() const
 #elif defined(__gfx1200__)
-//cm todo
     // builtin conversion
     explicit inline HIP_DEVICE operator float() const
     {
         float    fval;
         uint32_t i32val = static_cast<uint32_t>(data);
         if(T == hip_f8_type::bf8)
-            // workaround: use inline asm instead of builtin function
-            // fval = __builtin_amdgcn_cvt_f32_bf8(i32val, 0);
-            asm volatile("v_cvt_f32_bf8 %0, %1 src0_sel:BYTE_0" : "=v"(fval) : "v"(i32val));
+            fval = __builtin_amdgcn_cvt_f32_bf8(i32val, 0);
         else
-            // workaround: use inline asm instead of builtin function
-            // fval = __builtin_amdgcn_cvt_f32_fp8(i32val, 0);
-            asm volatile("v_cvt_f32_fp8 %0, %1 src0_sel:BYTE_0" : "=v"(fval) : "v"(i32val));
+            fval = __builtin_amdgcn_cvt_f32_fp8(i32val, 0);
         return fval;
     }
+    explicit inline HIP_HOST operator float() const
 #else // non gfx940
 
     explicit inline HIP_HOST_DEVICE operator float() const
@@ -650,7 +691,6 @@ inline __host__ __device__ tensile_float8
     val.data = tensile_gfx940_f8_impl::cast_to_f8_from_f32<false, true>(a, rng);
     return val;
 #elif defined(__gfx1200__)
-//cm todo
     tensile_float8 val;
     val.data = tensile_gfx1200_f8_impl::cast_to_f8_from_f32<false, true>(a, rng);
     return val;
@@ -668,7 +708,6 @@ inline __host__ __device__ tensile_float8
     val.data = tensile_gfx940_f8_impl::cast_to_f8_from_f32<false, false>(a, rng);
     return val;
 #elif defined(__gfx1200__)
-//cm todo
     tensile_float8 val;
     val.data = tensile_gfx1200_f8_impl::cast_to_f8_from_f32<false, false>(a, rng);
     return val;

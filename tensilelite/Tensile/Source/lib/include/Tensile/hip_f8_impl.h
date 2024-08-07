@@ -126,7 +126,6 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
         uint64_t  fInf, mask;
         uint32_t signed_inf = 0;
         uint32_t nan = 0;
-        //bool is_fnuz = false;
         uint64_t  ifmax = 0;
 
         if(sizeof(T) == 4)

@@ -42,6 +42,12 @@ constexpr auto hipblaslt_type2datatype()
         return HIP_R_8F_E4M3_FNUZ;
     if(std::is_same<T, hipblaslt_bf8_fnuz>{})
         return HIP_R_8F_E5M2_FNUZ;
+#ifdef ROCM_USE_FLOAT8 //cm todo
+    if(std::is_same<T, hipblaslt_f8_ocp>{})
+        return HIP_R_8F_E4M3;
+    if(std::is_same<T, hipblaslt_bf8_ocp>{})
+        return HIP_R_8F_E5M2;
+#endif
     if(std::is_same<T, int32_t>{})
         return HIP_R_32I;
     if(std::is_same<T, hipblasLtInt8>{})
@@ -77,6 +83,12 @@ auto hipblaslt_simple_dispatch(const Arguments& arg)
         return TEST<hipblaslt_f8_fnuz>{}(arg);
     case HIP_R_8F_E5M2_FNUZ:
         return TEST<hipblaslt_bf8_fnuz>{}(arg);
+#ifdef ROCM_USE_FLOAT8 //cm todo
+    case HIP_R_8F_E4M3:
+        return TEST<hipblaslt_f8_ocp>{}(arg);
+    case HIP_R_8F_E5M2:
+        return TEST<hipblaslt_bf8_ocp>{}(arg);
+#endif
     case HIP_R_8I:
         return TEST<hipblasLtInt8>{}(arg);
     case HIP_R_32I:
@@ -111,6 +123,12 @@ auto hipblaslt_matmul_dispatch(const Arguments& arg)
                 return TEST<hipblasLtHalf, hipblasLtHalf, hipblasLtHalf, float, hipblaslt_f8_fnuz, hipblaslt_bf8_fnuz>{}(arg);
             else if(TciA == HIP_R_8F_E5M2_FNUZ && TciB == HIP_R_8F_E4M3_FNUZ)
                 return TEST<hipblasLtHalf, hipblasLtHalf, hipblasLtHalf, float, hipblaslt_bf8_fnuz, hipblaslt_f8_fnuz>{}(arg);
+#ifdef ROCM_USE_FLOAT8 //cm todo
+            else if(TciA == HIP_R_8F_E4M3 && TciB == HIP_R_8F_E5M2)
+                return TEST<hipblasLtHalf, hipblasLtHalf, hipblasLtHalf, float, hipblaslt_f8_ocp, hipblaslt_bf8_ocp>{}(arg);
+            else if(TciA == HIP_R_8F_E5M2 && TciB == HIP_R_8F_E4M3)
+                return TEST<hipblasLtHalf, hipblasLtHalf, hipblasLtHalf, float, hipblaslt_bf8_ocp, hipblaslt_f8_ocp>{}(arg);
+#endif
             else
                 return TEST<hipblasLtHalf, hipblasLtHalf, hipblasLtHalf, float>{}(arg);
         }
@@ -222,6 +240,48 @@ auto hipblaslt_matmul_dispatch(const Arguments& arg)
         {
             return TEST<hipblaslt_bf8_fnuz, hipblaslt_bf8_fnuz, hipblaslt_bf8_fnuz, float>{}(arg);
         }
+#ifdef ROCM_USE_FLOAT8 //cm todo
+        else if(TiA == HIP_R_8F_E4M3 && TiB == HIP_R_8F_E4M3 && To == HIP_R_8F_E4M3
+                && Tc == HIPBLAS_COMPUTE_32F)
+        {
+            return TEST<hipblaslt_f8_ocp, hipblaslt_f8_ocp, hipblaslt_f8_ocp, float>{}(arg);
+        }
+        else if(TiA == HIP_R_8F_E4M3 && TiB == HIP_R_8F_E4M3 && To == HIP_R_8F_E5M2
+                && Tc == HIPBLAS_COMPUTE_32F)
+        {
+            return TEST<hipblaslt_f8_ocp, hipblaslt_f8_ocp, hipblaslt_bf8_ocp, float>{}(arg);
+        }
+        else if(TiA == HIP_R_8F_E4M3 && TiB == HIP_R_8F_E5M2 && To == HIP_R_8F_E4M3
+                && Tc == HIPBLAS_COMPUTE_32F)
+        {
+            return TEST<hipblaslt_f8_ocp, hipblaslt_bf8_ocp, hipblaslt_f8_ocp, float>{}(arg);
+        }
+        else if(TiA == HIP_R_8F_E4M3 && TiB == HIP_R_8F_E5M2 && To == HIP_R_8F_E5M2
+                && Tc == HIPBLAS_COMPUTE_32F)
+        {
+            return TEST<hipblaslt_f8_ocp, hipblaslt_bf8_ocp, hipblaslt_bf8_ocp, float>{}(arg);
+        }
+        else if(TiA == HIP_R_8F_E5M2 && TiB == HIP_R_8F_E4M3 && To == HIP_R_8F_E4M3
+                && Tc == HIPBLAS_COMPUTE_32F)
+        {
+            return TEST<hipblaslt_bf8_ocp, hipblaslt_f8_ocp, hipblaslt_f8_ocp, float>{}(arg);
+        }
+        else if(TiA == HIP_R_8F_E5M2 && TiB == HIP_R_8F_E4M3 && To == HIP_R_8F_E5M2
+                && Tc == HIPBLAS_COMPUTE_32F)
+        {
+            return TEST<hipblaslt_bf8_ocp, hipblaslt_f8_ocp, hipblaslt_bf8_ocp, float>{}(arg);
+        }
+        else if(TiA == HIP_R_8F_E5M2 && TiB == HIP_R_8F_E5M2 && To == HIP_R_8F_E4M3
+                && Tc == HIPBLAS_COMPUTE_32F)
+        {
+            return TEST<hipblaslt_bf8_ocp, hipblaslt_bf8_ocp, hipblaslt_f8_ocp, float>{}(arg);
+        }
+        else if(TiA == HIP_R_8F_E5M2 && TiB == HIP_R_8F_E5M2 && To == HIP_R_8F_E5M2
+                && Tc == HIPBLAS_COMPUTE_32F)
+        {
+            return TEST<hipblaslt_bf8_ocp, hipblaslt_bf8_ocp, hipblaslt_bf8_ocp, float>{}(arg);
+        }
+#endif  //cm end
         // end of FP8/BF8 combinations
         else if(TiA == HIP_R_8F_E5M2_FNUZ && TiB == HIP_R_8F_E4M3_FNUZ && To == HIP_R_16F
                 && Tc == HIPBLAS_COMPUTE_32F)

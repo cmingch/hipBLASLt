@@ -113,6 +113,12 @@ constexpr const char* hip_datatype_to_string(hipDataType type)
         return "f8_r";
     case HIP_R_8F_E5M2_FNUZ:
         return "bf8_r";
+#ifdef ROCM_USE_FLOAT8 //cm todo
+    case HIP_R_8F_E4M3:
+        return "f8_r";
+    case HIP_R_8F_E5M2:
+        return "bf8_r";
+#endif
     default:
         return "non-supported type";
     }
@@ -154,6 +160,10 @@ constexpr hipDataType string_to_hip_datatype(const std::string& value)
         value == "bf16_r"                ? HIP_R_16BF  :
         value == "f8_r"                ? HIP_R_8F_E4M3_FNUZ  :
         value == "bf8_r"                ? HIP_R_8F_E5M2_FNUZ  :
+#ifdef ROCM_USE_FLOAT8 //cm todo
+        value == "f8_r"                ? HIP_R_8F_E4M3  :
+        value == "bf8_r"                ? HIP_R_8F_E5M2  :
+#endif
         value == "i8_r" || value == "i8" ? HIP_R_8I  :
         value == "i32_r" || value == "i" ? HIP_R_32I  :
         HIPBLASLT_DATATYPE_INVALID;
@@ -278,6 +288,18 @@ __host__ __device__ inline bool hipblaslt_isnan(hipblaslt_bf8_fnuz arg)
 {
     return arg.is_nan();
 }
+
+#ifdef ROCM_USE_FLOAT8 //cm todo
+__host__ __device__ inline bool hipblaslt_isnan(hipblaslt_f8_ocp arg)
+{
+    return arg.is_nan();
+}
+
+__host__ __device__ inline bool hipblaslt_isnan(hipblaslt_bf8_ocp arg)
+{
+    return arg.is_nan();
+}
+#endif
 
 /*******************************************************************************
  * \brief  returns true if arg is Infinity
