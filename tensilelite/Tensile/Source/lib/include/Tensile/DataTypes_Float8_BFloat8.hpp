@@ -37,18 +37,54 @@
 #define HIP_HOST __host__
 #define HIP_DEVICE __device__
 
+#include <hip/hip_fp8.h> //ocp
+#include <regex>
+
 namespace tensile_hip_f8_impl
 {
 
+#if 1 //ocp, cm todo
+    template <int wm, int we, typename T, bool negative_zero_nan, bool clip>
+#else
     template <int wm, int we, typename T, bool is_fnuz, bool clip>
+#endif
     HIP_HOST_DEVICE uint8_t cast_to_f8(T _x, bool stoch = false, uint32_t rng = 0);
 
+#if 1 //ocp, cm todo
+    template <int wm, int we, typename T, bool negative_zero_nan>
+#else
     template <int wm, int we, typename T, bool is_fnuz>
+#endif
     HIP_HOST_DEVICE T cast_from_f8(uint8_t x);
 
 } // namespace hip_f8_impl
 
 #include "hip_f8_impl.h"
+
+inline bool gpu_arch_match(std::string_view gpu_arch, std::string_view pattern)
+{
+        if (!pattern.length())
+        {
+            return true;
+        }
+
+        constexpr char prefix[] = "gfx";
+        const std::size_t prefix_len = std::string_view(prefix).length();
+        gpu_arch.remove_prefix(prefix_len);
+        std::regex arch_regex(pattern.data());
+        return std::regex_search(gpu_arch.data(), arch_regex);
+}
+
+inline bool IsOCPSupported()
+{
+        int             deviceId;
+        hipDeviceProp_t deviceProperties;
+        static_cast<void>(hipGetDevice(&deviceId));
+        static_cast<void>(hipGetDeviceProperties(&deviceProperties, deviceId));
+        if(gpu_arch_match(deviceProperties.gcnArchName, "12\\d{2}"))
+            return true;
+        return false;
+}
 
 //  Naming convension of datatype in hip header file
 //      float8: fp8
@@ -113,11 +149,6 @@ namespace Tensile
 #endif
     }
 
-#if (HIP_FP8_TYPE_FNUZ == 1)
-bool is_Fnuz = true;
-#else
-bool is_Fnuz = false;
-#endif
     // data type
     template <hip_f8_type T>
     struct Float8_BFloat8
@@ -196,6 +227,9 @@ bool is_Fnuz = false;
 
         // only host code is simulated
         explicit HIP_HOST
+#elif defined(__gfx1200__BAK)
+
+
 #elif defined(__gfx1200__)
         // constructor from float using s/w simulation
         // Device implementation using intrinsic code
@@ -270,31 +304,35 @@ bool is_Fnuz = false;
             // NOTE: made clipping default again
             if(T == hip_f8_type::bf8)
             {
-                if(get_hip_f8_bias_mode())
+                if (IsOCPSupported()) //ocp, cm todo
+                    data = internal::cast_to_f8<float, false /*is_funz*/>(v, 2, 5, false, (rm == hip_f8_rounding_mode::stochastic), rng);
+                else if(get_hip_f8_bias_mode())
                 {
                     data = tensile_hip_f8_impl::
-                        cast_to_f8<2, 5, float, is_Fnuz /*is_fnuz*/, true /*clip*/>(
+                        cast_to_f8<2, 5, float, true /*negative_zero_nan*/, true /*clip*/>(
                             v, (rm == hip_f8_rounding_mode::stochastic), rng);
                 }
                 else
                 {
                     data = tensile_hip_f8_impl::
-                        cast_to_f8<2, 5, float, is_Fnuz /*is_fnuz*/, true /*clip*/>(
+                        cast_to_f8<2, 5, float, false /*negative_zero_nan*/, true /*clip*/>(
                             v, (rm == hip_f8_rounding_mode::stochastic), rng);
                 }
             }
             else /* fp8*/
             {
-                if(get_hip_f8_bias_mode())
+                if (IsOCPSupported()) //ocp, cm todo
+                    data = internal::cast_to_f8<float, false /*is_funz*/>(v, 3, 4, false, (rm == hip_f8_rounding_mode::stochastic), rng);
+                else if(get_hip_f8_bias_mode())
                 {
                     data = tensile_hip_f8_impl::
-                        cast_to_f8<3, 4, float, is_Fnuz /*is_fnuz*/, true /*clip*/>(
+                        cast_to_f8<3, 4, float, true /*negative_zero_nan*/, true /*clip*/>(
                             v, (rm == hip_f8_rounding_mode::stochastic), rng);
                 }
                 else
                 {
                     data = tensile_hip_f8_impl::
-                        cast_to_f8<3, 4, float, is_Fnuz /*is_fnuz*/, true /*clip*/>(
+                        cast_to_f8<3, 4, float, false /*negative_zero_nan*/, true /*clip*/>(
                             v, (rm == hip_f8_rounding_mode::stochastic), rng);
                 }
             }
@@ -311,6 +349,9 @@ bool is_Fnuz = false;
         }
 
         explicit HIP_HOST
+#elif defined(__gfx1200__BAK)
+
+
 #elif defined(__gfx1200__)
         // convert double to f32 and call constructor
         explicit HIP_DEVICE Float8_BFloat8(double               v,
@@ -342,6 +383,9 @@ bool is_Fnuz = false;
         }
 
         explicit HIP_HOST
+#elif defined(__gfx1200__BAK)
+
+
 #elif defined(__gfx1200__)
         // no h/w inst for cvt from f16, just convert f16 to f32 and call constructor
         explicit HIP_DEVICE Float8_BFloat8(_Float16             v,
@@ -363,31 +407,35 @@ bool is_Fnuz = false;
             // NOTE: made clipping default again
             if(T == hip_f8_type::bf8)
             {
-                if(get_hip_f8_bias_mode())
+                if (IsOCPSupported()) //ocp, cm todo
+                    data = internal::cast_to_f8<float, false /*is_funz*/>(v, 2, 5, false, (rm == hip_f8_rounding_mode::stochastic), rng);
+                else if(get_hip_f8_bias_mode())
                 {
                     data = tensile_hip_f8_impl::
-                        cast_to_f8<2, 5, _Float16, is_Fnuz /*is_fnuz*/, true /*clip*/>(
+                        cast_to_f8<2, 5, _Float16, true /*negative_zero_nan*/, true /*clip*/>(
                             v, (rm == hip_f8_rounding_mode::stochastic), rng);
                 }
                 else
                 {
                     data = tensile_hip_f8_impl::
-                        cast_to_f8<2, 5, _Float16, is_Fnuz /*is_fnuz*/, true /*clip*/>(
+                        cast_to_f8<2, 5, _Float16, false /*negative_zero_nan*/, true /*clip*/>(
                             v, (rm == hip_f8_rounding_mode::stochastic), rng);
                 }
             }
             else /* fp8*/
             {
-                if(get_hip_f8_bias_mode())
+                if (IsOCPSupported()) //ocp, cm todo
+                    data = internal::cast_to_f8<float, false /*is_funz*/>(v, 3, 4, false, (rm == hip_f8_rounding_mode::stochastic), rng);
+                else if(get_hip_f8_bias_mode())
                 {
                     data = tensile_hip_f8_impl::
-                        cast_to_f8<3, 4, _Float16, is_Fnuz /*is_fnuz*/, true /*clip*/>(
+                        cast_to_f8<3, 4, _Float16, true /*negative_zero_nan*/, true /*clip*/>(
                             v, (rm == hip_f8_rounding_mode::stochastic), rng);
                 }
                 else
                 {
                     data = tensile_hip_f8_impl::
-                        cast_to_f8<3, 4, _Float16, is_Fnuz /*is_fnuz*/, true /*clip*/>(
+                        cast_to_f8<3, 4, _Float16, false /*negative_zero_nan*/, true /*clip*/>(
                             v, (rm == hip_f8_rounding_mode::stochastic), rng);
                 }
             }
@@ -431,6 +479,8 @@ bool is_Fnuz = false;
             return fval;
         }
         explicit inline HIP_HOST operator float() const
+#elif defined(__gfx1200__BAK)
+
 #elif defined(__gfx1200__)
         // builtin conversion
         explicit inline HIP_DEVICE operator float() const
@@ -456,28 +506,33 @@ bool is_Fnuz = false;
             assert(T == hip_f8_type::fp8 || T == hip_f8_type::bf8);
             if(T == hip_f8_type::bf8)
             {
-                if(get_hip_f8_bias_mode())
+
+                if (IsOCPSupported()) //ocp, cm todo
+                    return internal::cast_from_f8<float, false /*is_funz*/>(data, 2, 5, false);
+                else if(get_hip_f8_bias_mode())
                 {
                     return tensile_hip_f8_impl::
-                        cast_from_f8<2, 5, float, is_fnuz /*is_fnuz*/>(data);
+                        cast_from_f8<2, 5, float, true /*negative_zero_nan*/>(data);
                 }
                 else
                 {
                     return tensile_hip_f8_impl::
-                        cast_from_f8<2, 5, float, is_fnuz /*is_fnuz*/>(data);
+                        cast_from_f8<2, 5, float, true /*is_fnuz*/>(data);
                 }
             }
             else /* fp8*/
             {
-                if(get_hip_f8_bias_mode())
+                if (IsOCPSupported()) //ocp, cm todo
+                    return internal::cast_from_f8<float, false /*is_funz*/>(data, 3, 4, false);
+                else if(get_hip_f8_bias_mode())
                 {
                     return tensile_hip_f8_impl::
-                        cast_from_f8<3, 4, float, is_fnuz /*is_fnuz*/>(data);
+                        cast_from_f8<3, 4, float, true /*negative_zero_nan*/>(data);
                 }
                 else
                 {
                     return tensile_hip_f8_impl::
-                        cast_from_f8<3, 4, float, is_fnuz /*is_fnuz*/>(data);
+                        cast_from_f8<3, 4, float, false /*negative_zero_nan*/>(data);
                 }
             }
         }
@@ -509,6 +564,8 @@ bool is_Fnuz = false;
         }
 
         explicit inline HIP_HOST operator _Float16() const
+#elif defined(__gfx1200__BAK)
+
 #elif defined(__gfx1200__)
         explicit inline HIP_DEVICE operator _Float16() const
         {
@@ -523,28 +580,32 @@ bool is_Fnuz = false;
             assert(T == hip_f8_type::fp8 || T == hip_f8_type::bf8);
             if(T == hip_f8_type::bf8)
             {
-                if(get_hip_f8_bias_mode())
+                if (IsOCPSupported()) //ocp, cm todo
+                    return internal::cast_from_f8<float, false /*is_funz*/>(data, 2, 5, false);
+                else if(get_hip_f8_bias_mode())
                 {
                     return tensile_hip_f8_impl::
-                        cast_from_f8<2, 5, _Float16, is_fnuz /*is_fnuz*/>(data);
+                        cast_from_f8<2, 5, _Float16, true /*negative_zero_nan*/>(data);
                 }
                 else
                 {
                     return tensile_hip_f8_impl::
-                        cast_from_f8<2, 5, _Float16, is_fnuz /*is_fnuz*/>(data);
+                        cast_from_f8<2, 5, _Float16, false /*negative_zero_nan*/>(data);
                 }
             }
             else /* fp8*/
             {
-                if(get_hip_f8_bias_mode())
+                if (IsOCPSupported()) //ocp, cm todo
+                    return internal::cast_from_f8<float, false /*is_funz*/>(data, 2, 5, false);
+                else if(get_hip_f8_bias_mode())
                 {
                     return tensile_hip_f8_impl::
-                        cast_from_f8<3, 4, _Float16, is_fnuz /*is_fnuz*/>(data);
+                        cast_from_f8<3, 4, _Float16, true /*negative_zero_nan*/>(data);
                 }
                 else
                 {
                     return tensile_hip_f8_impl::
-                        cast_from_f8<3, 4, _Float16, is_fnuz /*is_fnuz*/>(data);
+                        cast_from_f8<3, 4, _Float16, false /*negative_zero_nan*/>(data);
                 }
             }
         }
@@ -648,10 +709,17 @@ bool is_Fnuz = false;
     };
 
     // TODO: place it in appropriate header
+    #if 1 //ocp, cm todo
     typedef Float8_BFloat8<hip_f8_type::fp8>    Float8;
     typedef Float8_BFloat8<hip_f8_type::bf8>    BFloat8;
     typedef Float8_BFloat8<hip_f8_type::fp8bf8> Float8BFloat8;
     typedef Float8_BFloat8<hip_f8_type::bf8fp8> BFloat8Float8;
+    #else
+    typedef __hip_fp8_e4m3 Float8;
+    typedef __hip_fp8_e5m2 BFloat8;
+    typedef Float8_BFloat8<hip_f8_type::fp8bf8> Float8BFloat8;
+    typedef Float8_BFloat8<hip_f8_type::bf8fp8> BFloat8Float8;
+    #endif
 
     //  Other operator overloading
     inline std::ostream& operator<<(std::ostream& os, const Float8& f8)
@@ -792,19 +860,22 @@ bool is_Fnuz = false;
     template <>
     inline Float8 explicit_downcast(float a, hip_f8_rounding_mode rm, uint32_t rng)
     {
-        return Float8(a, rm, rng);
+        return Float8(a, rm, rng); //cm todo
+        //return Float8(a);
     }
 
     // bfloat8 ........
     template <>
     inline BFloat8 explicit_downcast(float a, hip_f8_rounding_mode rm, uint32_t rng)
     {
-        return BFloat8(a, rm, rng);
+        return BFloat8(a, rm, rng); //cm todo
+        //return BFloat8(a);
     }
 } // end of namespace Tensile
 
 namespace std
 {
+#if 1
     inline bool isinf(const Tensile::Float8& a)
     {
         return a.is_inf();
@@ -866,4 +937,5 @@ namespace std
     {
         return std::to_string(static_cast<float>(a));
     }
+#endif
 } // namespace std

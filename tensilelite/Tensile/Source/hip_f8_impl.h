@@ -74,7 +74,11 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
 }
 #endif
 
+#if 1 //ocp, cm todo
+    template <int wm, int we, typename T, bool negative_zero_nan, bool clip>
+#else
     template <int wm, int we, typename T, bool is_fnuz, bool clip>
+#endif
     HIP_HOST_DEVICE uint8_t cast_to_f8(T _x, bool stoch, uint32_t rng)
     {
         constexpr bool is_half  = std::is_same<T, _Float16>::value;
@@ -95,11 +99,13 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
         uint32_t y, head, mantissa;
         int      exponent, bias;
         uint32_t sign;
+#if 0 //ocp, cm todo
         uint64_t  fInf, mask;
         uint32_t signed_inf = 0;
         uint32_t nan = 0;
         //bool is_fnuz = false;
         uint64_t  ifmax = 0;
+#endif
 
         if(sizeof(T) == 4)
         {
@@ -108,8 +114,10 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
             exponent = (head >> 23) & 0xFF;
             sign     = head >> 31;
             bias     = 127;
+#if 0 //ocp, cm todo
             fInf = 0x7F800000;
             mask = 0x7FFFFFFF;
+#endif
         }
         else
         {
@@ -118,9 +126,44 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
             exponent = (head >> 10) & 0x1F;
             sign     = head >> 15;
             bias     = 15;
+#if 0 //ocp, cm todo
             fInf = 0x7C00;
             mask = 0x7FFF;
+#endif
         }
+
+#if 1 //ocp, cm todo
+        uint32_t signed_inf = (sign << 7) + (((1 << we) - 1) << wm);
+
+        // Deal with inf and NaNs
+        if(negative_zero_nan)
+        {
+            if(sizeof(T) == 4)
+            {
+                if((x & 0x7F800000) == 0x7F800000)
+                    return 0x80;
+            }
+            else
+            {
+                //if(__hisinf(x) || __hisnan(x))
+                if((x & 0x7C00) == 0x7C00)
+                    return 0x80;
+            }
+        }
+        else
+        {
+            if(sizeof(T) == 4)
+            {
+                if((x & 0x7F800000) == 0x7F800000)
+                    return signed_inf + (mantissa != 0 ? 1 : 0);
+            }
+            else
+            {
+                if((x & 0x7C00) == 0x7C00)
+                    return signed_inf + (mantissa != 0 ? 1 : 0);
+            }
+        }
+#else
         if (is_fnuz)
         {
             signed_inf = clip ? ((sign << 7) + 0x7f) : 0x80;
@@ -187,7 +230,7 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
         {
             return signed_inf;
         }
-
+#endif
         if(x == 0)
             return 0;
 
@@ -198,7 +241,11 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
         // exponent and mantissa again
 
         // For IEEE bias mode, the bias is 2^(k-1) -1 where k is the width of exponent bits
+#if 1 //ocp, cm todo
+        const int f8_bias                  = (1 << (we - 1)) - 1 + (negative_zero_nan ? 1 : 0);
+#else
         const int f8_bias = (1 << (we - 1)) - 1 + (is_fnuz ? 1 : 0);
+#endif
         const int f8_denormal_act_exponent = 1 - f8_bias; //actual exponent of f8 denormal
         // act_exponent is the actual exponent of fp32/fp16 (after subtracting bias)
         // f8_exponent is the converted f8 exponent with bias encoding
@@ -286,7 +333,11 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
         mantissa >>= (mfmt - wm);
 
         // above range: quantize to maximum possible float of the same sign
+#if 1//ocp, cm todo
+        const int max_exp = (1 << we) - (negative_zero_nan ? 1 : 2);
+#else
         const int max_exp = (1 << we) - 1;
+#endif
         if(f8_exponent > max_exp)
         {
             if(clip)
@@ -300,12 +351,21 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
             }
         }
 
+#if 1 //ocp, cm todo
+        if(f8_exponent == 0 && mantissa == 0)
+            return negative_zero_nan ? 0 : (sign << 7);
+#else
         if (f8_exponent == 0 && mantissa == 0) return is_fnuz ? 0 : (sign << 7);
+#endif
         mantissa &= (1 << wm) - 1;
         return (sign << 7) | (f8_exponent << wm) | mantissa;
     }
 
+#if 1 //ocp cm todo
+    template <int wm, int we, typename T, bool negative_zero_nan>
+#else
     template <int wm, int we, typename T, bool is_fnuz>
+#endif
     HIP_HOST_DEVICE T cast_from_f8(uint8_t x)
     {
         constexpr bool is_half  = std::is_same<T, _Float16>::value;
@@ -316,22 +376,30 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
         constexpr int weo = is_half ? 5 : 8;
         constexpr int wmo = is_half ? 10 : (is_float ? 23 : 7);
 
+#if 1 //ocp, cm todo
+        T fInf, fNegInf, fNaN, fNeg0;
+#else
         T fInf, fNegInf, fNaN, fNeg0, fmax, fmin;
+#endif
         if(is_half)
         {
             const uint16_t ihInf    = 0x7C00;
             const uint16_t ihNegInf = 0xFC00;
             const uint16_t ihNaN    = 0x7C01;
             const uint16_t ihNeg0   = 0x8000;
+#if 0 //ocp, cm todo
             /* Max number in e5m2 57344*/
             const unsigned short int ifmax = 0x7B00;
             const unsigned short int ifmin = 0xFB00;
+#endif
             fInf                    = reinterpret_cast<const _Float16&>(ihInf);
             fNegInf                 = reinterpret_cast<const _Float16&>(ihNegInf);
             fNaN                    = reinterpret_cast<const _Float16&>(ihNaN);
             fNeg0                   = reinterpret_cast<const _Float16&>(ihNeg0);
+#if 0 //ocp, cm todo
             fmax = reinterpret_cast<const _Float16&>(ifmax);
             fmin = reinterpret_cast<const _Float16&>(ifmin);
+#endif
         }
         else if(is_float)
         {
@@ -346,8 +414,10 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
             fNegInf                 = reinterpret_cast<const float&>(ifNegInf);
             fNaN                    = reinterpret_cast<const float&>(ifNaN);
             fNeg0                   = reinterpret_cast<const float&>(ifNeg0);
+#if 0 //ocp, cm todo
             fmax = reinterpret_cast<const float&>(ifmax);
             fmin = reinterpret_cast<const float&>(ifmin);
+#endif
         }
 
         if(x == 0)
@@ -356,6 +426,21 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
         uint32_t sign     = x >> 7;
         uint32_t mantissa = x & ((1 << wm) - 1);
         int      exponent = (x & 0x7F) >> wm;
+
+#if 1 //ocp, cm todo
+        if(negative_zero_nan)
+        {
+            if(x == 0x80)
+                return fNaN;
+        }
+        else
+        {
+            if(x == 0x80)
+                return fNeg0;
+            if(exponent == ((1 << we) - 1))
+                return (mantissa == 0) ? (sign ? fNegInf : fInf) : fNaN;
+        }
+#else
         if (is_fnuz)
         {
             if (x == 0x80)
@@ -388,14 +473,24 @@ uint8_t cast_to_f8_no_range_reduce(T _x, bool stoch = false, uint32_t rng = 0) {
                 return fNaN;
             }
         }
+#endif
         typename std::conditional<sizeof(T) == 2, uint16_t, uint32_t>::type retval;
+#if 1 //ocp, cm todo
+        if(we == 5 && is_half && !negative_zero_nan)
+#else
         if (we == 5 && is_half && !is_fnuz)
+#endif
         {
             retval = x << 8;
             return reinterpret_cast<const T&>(retval);
         }
 
+#if 1 //ocp, cm todo
+        const int exp_low_cutoff
+            = (1 << (weo - 1)) - (1 << (we - 1)) + 1 - (negative_zero_nan ? 1 : 0);
+#else
         const int exp_low_cutoff = (1 << (weo - 1)) - (1 << (we - 1)) + 1 - (is_fnuz ? 1 : 0);
+#endif
 
         //subnormal input
         if(exponent == 0)

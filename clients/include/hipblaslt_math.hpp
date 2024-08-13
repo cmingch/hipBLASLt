@@ -83,7 +83,23 @@ inline hipblaslt_bf8_fnuz negate(hipblaslt_bf8_fnuz x)
 }
 
 #ifdef ROCM_USE_FLOAT8 //cm todo
-sdgergb
+template <>
+inline hipblaslt_f8_ocp negate(hipblaslt_f8_ocp x)
+{
+#if defined(__HIP_PLATFORM_AMD__)
+    x.data ^= 0x80;
+#endif
+    return x;
+}
+
+template <>
+inline hipblaslt_bf8_ocp negate(hipblaslt_bf8_ocp x)
+{
+#if defined(__HIP_PLATFORM_AMD__)
+    x.data ^= 0x80;
+#endif
+    return x;
+}
 #endif
 
 // Helper function to reduce intermediate precision and the output type are the same as the input type.

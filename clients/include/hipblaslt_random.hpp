@@ -148,7 +148,17 @@ public:
         return x.value;
     }
 #ifdef ROCM_USE_FLOAT8 //cm todo
-sngeklrngklrseth
+    // Single NaN float8...
+    explicit operator hipblaslt_f8_ocp()
+    {
+        return random_nan_data<hip_fp8, uint8_t, 3, 4>();
+    }
+
+    // Single NaN bfloat8...
+    explicit operator hipblaslt_bf8_ocp()
+    {
+        return random_nan_data<hip_fp8, uint8_t, 2, 5>();
+    }
 #endif
 };
 
