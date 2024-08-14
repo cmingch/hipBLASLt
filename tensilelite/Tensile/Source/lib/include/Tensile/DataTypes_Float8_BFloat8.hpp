@@ -304,9 +304,12 @@ namespace Tensile
             // NOTE: made clipping default again
             if(T == hip_f8_type::bf8)
             {
+#if defined(HIP_FP8_TYPE_OCP)
                 if (IsOCPSupported()) //ocp, cm todo
                     data = internal::cast_to_f8<float, false /*is_funz*/>(v, 2, 5, false, (rm == hip_f8_rounding_mode::stochastic), rng);
-                else if(get_hip_f8_bias_mode())
+                else
+#endif
+		if(get_hip_f8_bias_mode())
                 {
                     data = tensile_hip_f8_impl::
                         cast_to_f8<2, 5, float, true /*negative_zero_nan*/, true /*clip*/>(
@@ -321,9 +324,12 @@ namespace Tensile
             }
             else /* fp8*/
             {
+#if defined(HIP_FP8_TYPE_OCP)
                 if (IsOCPSupported()) //ocp, cm todo
                     data = internal::cast_to_f8<float, false /*is_funz*/>(v, 3, 4, false, (rm == hip_f8_rounding_mode::stochastic), rng);
-                else if(get_hip_f8_bias_mode())
+                else
+#endif
+		if(get_hip_f8_bias_mode())
                 {
                     data = tensile_hip_f8_impl::
                         cast_to_f8<3, 4, float, true /*negative_zero_nan*/, true /*clip*/>(
@@ -407,9 +413,12 @@ namespace Tensile
             // NOTE: made clipping default again
             if(T == hip_f8_type::bf8)
             {
+#if defined(HIP_FP8_TYPE_OCP)
                 if (IsOCPSupported()) //ocp, cm todo
                     data = internal::cast_to_f8<float, false /*is_funz*/>(v, 2, 5, false, (rm == hip_f8_rounding_mode::stochastic), rng);
-                else if(get_hip_f8_bias_mode())
+                else
+#endif
+		if(get_hip_f8_bias_mode())
                 {
                     data = tensile_hip_f8_impl::
                         cast_to_f8<2, 5, _Float16, true /*negative_zero_nan*/, true /*clip*/>(
@@ -424,9 +433,12 @@ namespace Tensile
             }
             else /* fp8*/
             {
+#if defined(HIP_FP8_TYPE_OCP)
                 if (IsOCPSupported()) //ocp, cm todo
                     data = internal::cast_to_f8<float, false /*is_funz*/>(v, 3, 4, false, (rm == hip_f8_rounding_mode::stochastic), rng);
-                else if(get_hip_f8_bias_mode())
+                else
+#endif
+		if(get_hip_f8_bias_mode())
                 {
                     data = tensile_hip_f8_impl::
                         cast_to_f8<3, 4, _Float16, true /*negative_zero_nan*/, true /*clip*/>(
@@ -506,10 +518,12 @@ namespace Tensile
             assert(T == hip_f8_type::fp8 || T == hip_f8_type::bf8);
             if(T == hip_f8_type::bf8)
             {
-
+#if defined(HIP_FP8_TYPE_OCP)
                 if (IsOCPSupported()) //ocp, cm todo
                     return internal::cast_from_f8<float, false /*is_funz*/>(data, 2, 5, false);
-                else if(get_hip_f8_bias_mode())
+                else
+#endif
+		if(get_hip_f8_bias_mode())
                 {
                     return tensile_hip_f8_impl::
                         cast_from_f8<2, 5, float, true /*negative_zero_nan*/>(data);
@@ -522,9 +536,12 @@ namespace Tensile
             }
             else /* fp8*/
             {
+#if defined(HIP_FP8_TYPE_OCP)
                 if (IsOCPSupported()) //ocp, cm todo
                     return internal::cast_from_f8<float, false /*is_funz*/>(data, 3, 4, false);
-                else if(get_hip_f8_bias_mode())
+                else
+#endif
+		if(get_hip_f8_bias_mode())
                 {
                     return tensile_hip_f8_impl::
                         cast_from_f8<3, 4, float, true /*negative_zero_nan*/>(data);
@@ -580,9 +597,12 @@ namespace Tensile
             assert(T == hip_f8_type::fp8 || T == hip_f8_type::bf8);
             if(T == hip_f8_type::bf8)
             {
+#if defined(HIP_FP8_TYPE_OCP)
                 if (IsOCPSupported()) //ocp, cm todo
                     return internal::cast_from_f8<float, false /*is_funz*/>(data, 2, 5, false);
-                else if(get_hip_f8_bias_mode())
+                else
+#endif
+		if(get_hip_f8_bias_mode())
                 {
                     return tensile_hip_f8_impl::
                         cast_from_f8<2, 5, _Float16, true /*negative_zero_nan*/>(data);
@@ -595,9 +615,12 @@ namespace Tensile
             }
             else /* fp8*/
             {
+#if defined(HIP_FP8_TYPE_OCP)
                 if (IsOCPSupported()) //ocp, cm todo
                     return internal::cast_from_f8<float, false /*is_funz*/>(data, 2, 5, false);
-                else if(get_hip_f8_bias_mode())
+                else
+#endif
+		if(get_hip_f8_bias_mode())
                 {
                     return tensile_hip_f8_impl::
                         cast_from_f8<3, 4, _Float16, true /*negative_zero_nan*/>(data);

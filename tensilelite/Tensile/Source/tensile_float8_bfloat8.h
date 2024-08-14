@@ -120,10 +120,10 @@ namespace tensile_gfx940_f8_impl
     }
 
 }
+#elif defined(__gfx1200__BAK)
+
+
 #elif defined(__gfx1200__)
-
-
-#elif defined(__gfx1200__SELF)
 namespace tensile_gfx1200_f8_impl
 {
     template <bool isE2M5, bool stochastic_rounding>
@@ -281,7 +281,9 @@ struct Float8_BFloat8
     }
     // only host code is simulated
     explicit HIP_HOST
-#elif defined(__gfx1200__) //cm todo
+#elif defined(__gfx1200__BAK) //cm toda
+#if 0
+			   rgrtehrsth
     // NOTE: ON-DEVICE... always optimal bias
     explicit HIP_DEVICE Float8_BFloat8(float                v,
                                        hip_f8_rounding_mode rm  = hip_f8_rounding_mode::standard,
@@ -296,9 +298,9 @@ struct Float8_BFloat8
     }
     // only host code is simulated
     explicit HIP_HOST
+#endif
 
-
-#elif defined(__gfx1200__SELF)
+#elif defined(__gfx1200__)
     // NOTE: ON-DEVICE... always optimal bias
     explicit HIP_DEVICE Float8_BFloat8(float                v,
                                        hip_f8_rounding_mode rm  = hip_f8_rounding_mode::standard,
@@ -581,13 +583,15 @@ struct Float8_BFloat8
 };
 
 // TODO: place it in appropriate header
-#if defined(__gfx1200__) //ocp, cm todo
+//#if defined(__gfx1200__) //ocp, cm todo
+#if 0
 typedef __hip_fp8_e4m3 tensile_float8;
 typedef __hip_fp8_e5m2 tensile_bfloat8;
-#else
+#endif
+//#else
 typedef Float8_BFloat8<hip_f8_type::fp8> tensile_float8;
 typedef Float8_BFloat8<hip_f8_type::bf8> tensile_bfloat8;
-#endif
+//#endif
 
 //  Other operator overloading
 inline std::ostream& operator<<(std::ostream& os, const tensile_float8& f8)
@@ -741,11 +745,13 @@ inline __host__ __device__ tensile_float8
     tensile_float8 val;
     val.data = tensile_gfx940_f8_impl::cast_to_f8_from_f32<false, true>(a, rng);
     return val;
-#elif defined(__gfx1200__) //cm todo
+#elif defined(__gfx1200__BAK) //cm todo
+#if 0
     tensile_float8 val;
     val.__x = internal::cast_to_f8_from_f32<true>(a, true /*saturate*/, __HIP_E4M3, rng);
     return val;
-#elif defined(__gfx1200__SELF)
+#endif
+#elif defined(__gfx1200__)
     tensile_float8 val;
     val.data = tensile_gfx1200_f8_impl::cast_to_f8_from_f32<false, true>(a, rng);
     return val;
@@ -762,11 +768,13 @@ inline __host__ __device__ tensile_float8
     tensile_float8 val;
     val.data = tensile_gfx940_f8_impl::cast_to_f8_from_f32<false, false>(a, rng);
     return val;
-#elif defined(__gfx1200__) //cm todo
+#elif defined(__gfx1200__BAK) //cm todo
+#if 0
     tensile_float8 val;
     val.__x = internal::cast_to_f8_from_f32<false>(a, true /*saturate*/, __HIP_E4M3, rng);
     return val;
-#elif defined(__gfx1200__SELF)
+#endif
+#elif defined(__gfx1200__)
     tensile_float8 val;
     val.data = tensile_gfx1200_f8_impl::cast_to_f8_from_f32<false, false>(a, rng);
     return val;
@@ -783,11 +791,13 @@ inline __host__ __device__ tensile_bfloat8
     tensile_bfloat8 val;
     val.data = tensile_gfx940_f8_impl::cast_to_f8_from_f32<true, true>(a, rng);
     return val;
-#elif defined(__gfx1200__) //cm todo
+#elif defined(__gfx1200__BAK) //cm todo
+#if 0
     tensile_bfloat8 val;
     val.__x = internal::cast_to_f8_from_f32<true>(a, true /*saturate*/, __HIP_E5M2, rng);
     return val;
-#elif defined(__gfx1200__SELF)
+#endif
+#elif defined(__gfx1200__)
     tensile_bfloat8 val;
     val.data = tensile_gfx1200_f8_impl::cast_to_f8_from_f32<true, true>(a, rng);
     return val;
@@ -804,11 +814,13 @@ inline __host__ __device__ tensile_bfloat8
     tensile_bfloat8 val;
     val.data = tensile_gfx940_f8_impl::cast_to_f8_from_f32<true, false>(a, rng);
     return val;
-#elif defined(__gfx1200__)
+#elif defined(__gfx1200__BAK)
+#if 0
     tensile_bfloat8 val;
     val.__x = internal::cast_to_f8_from_f32<false>(a, true /*saturate*/, __HIP_E5M2, rng);
     return val;
-#elif defined(__gfx1200__SELF)
+#endif
+#elif defined(__gfx1200__)
     tensile_bfloat8 val;
     val.data = tensile_gfx1200_f8_impl::cast_to_f8_from_f32<true, false>(a, rng);
     return val;
